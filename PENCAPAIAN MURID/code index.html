@@ -1,0 +1,1411 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import { Plus, Trash2, Save, FileText, BarChart2, Award, Users, Trophy, Filter, Activity, Crown, List, UserCheck, Loader2, Edit, Printer, Star } from 'lucide-react';
+
+// Senarai pilihan berdasarkan keperluan
+const KATEGORI_PILIHAN = ['Individu', 'Berpasukan', 'Individu dan Berpasukan'];
+const BIDANG_PILIHAN = ['Sukan', 'Ko-akademik', 'Digital', 'Unit Beruniform', 'Tidak berkaitan'];
+const PERINGKAT_PILIHAN = ['Sekolah', 'Daerah', 'Bahagian', 'Negeri', 'Kebangsaan', 'Antarabangsa'];
+const PENCAPAIAN_INDIVIDU_PILIHAN = ['Tiada', 'Johan', 'Naib Johan', 'Ke-3', 'Ke-4', 'Ke-5', 'Penyertaan'];
+const PENCAPAIAN_PASUKAN_PILIHAN = ['Tiada', 'Johan', 'Naib Johan', 'Ke-3', 'Penyertaan'];
+const PERINGKAT_ANUGERAH_PILIHAN = ['Tiada', 'Sekolah', 'Daerah', 'Bahagian', 'Negeri', 'Kebangsaan', 'Antarabangsa'];
+const JAWATAN_PILIHAN = ['Tiada', 'Pengerusi / Ketua', 'Naib Pengerusi / Penolong', 'Setiausaha', 'Bendahari', 'Ahli Jawatankuasa (AJK)', 'Ahli Aktif', 'Ketua Pengawas', 'Penolong Ketua Pengawas', 'Pengawas', 'Pengawas Pusat Sumber', 'Pembimbing Rakan Sebaya'];
+
+// Senarai Guru (Dikembalikan bagi menampung kegunaan Borang Program)
+const SENARAI_GURU = [
+  "AIDA MASTURINA BINTI HAMKA", "AIFA NUR BESTARI BINTI RADUAN", "AZIZ BIN TAHIR",
+  "BRYAN ANAK CONSTANT", "EIFILISIA AMBER ANAK MERVIN", "FAZRI BIN BAKERI",
+  "HAIROL BIN ISMAIL", "HILWA HAYATI BINTI MOHAMAD AJALAN", "JACQUELINE TIONG HOE DING",
+  "JERIAH ANAK SIMON", "JIMMY ANAK PETER", "KHAIRI BIN SAHARI",
+  "LING MEE CHOO", "MARY JANE AMOI UMPANG ANAK DANIEL", "MOHAMAD ABIDIN BIN SIPEK",
+  "MOHD RAFEEQ BIN SULAIMAN", "MUHAMMAD ZULHUSAINI BIN ABDUL WAHAB", "NUR AZLIN BINTI NORIZAN",
+  "NUR HIDAYU BINTI YUSOP", "NURUL HUDA BTE MOHD IHWAN", "SABARIAH BINTI SOLHI",
+  "SALIHIN BIN AHMAD", "SYAEEZA LIANA BINTI RAMLI", "TENG RU YUN",
+  "TING HUA EE", "TING YU YONG", "WONG PICK KING", "ZEPRINA ANAK BENIK"
+].sort();
+
+// Sistem Markah/Skor Hierarki Carta Spider & Penentuan Tokoh
+const SKOR_PERINGKAT = { 'Antarabangsa': 60, 'Kebangsaan': 50, 'Negeri': 40, 'Bahagian': 30, 'Daerah': 20, 'Sekolah': 10 };
+const SKOR_PENCAPAIAN = { 'Johan': 6, 'Naib Johan': 5, 'Ke-3': 4, 'Ke-4': 3, 'Ke-5': 2, 'Penyertaan': 1, 'Tiada': 0 };
+const SKOR_JAWATAN = { 'Pengerusi / Ketua': 10, 'Naib Pengerusi / Penolong': 8, 'Setiausaha': 6, 'Bendahari': 6, 'Ahli Jawatankuasa (AJK)': 4, 'Ahli Aktif': 2, 'Ketua Pengawas': 10, 'Penolong Ketua Pengawas': 8, 'Pengawas': 6, 'Pengawas Pusat Sumber': 6, 'Pembimbing Rakan Sebaya': 6, 'Tiada': 0 };
+
+const calculateScore = (peringkat, pencapaian) => {
+  if (!pencapaian || pencapaian === 'Tiada') return 0;
+  return (SKOR_PERINGKAT[peringkat] || 0) + (SKOR_PENCAPAIAN[pencapaian] || 0);
+};
+
+// Pautan Google Sheets secara Live 
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRN7al7Ea32RemioaD3P_32WSh30ycyCuFC4jJktFWBwTENsFI8qdZ9fX04-89xEvOfRu4mvPXZd01G/pub?output=csv';
+
+const DEFAULT_KELAS = [
+  'PRASEKOLAH', '1BD', '1BP DELIMA', '1BP ZAMRUD', 
+  '2BP DELIMA', '2BP ZAMRUD', '3BD', '3BP', 
+  '4BD', '4BL', '4BP', '5BD', '5BP', '6BD', '6BP'
+];
+
+// Komponen Carta Spider (Radar Chart) SVG
+const SpiderChart = ({ data }) => {
+  const maxVal = Math.max(100, ...Object.values(data)) * 1.15; 
+  const getR = (val) => (val / maxVal) * 80; 
+
+  const SukanR = getR(data['Sukan'] || 0);
+  const KoakademikR = getR(data['Ko-akademik'] || 0);
+  const DigitalR = getR(data['Digital'] || 0);
+  const UnitR = getR(data['Unit Beruniform'] || 0);
+
+  const pts = `100,${100 - SukanR} ${100 + KoakademikR},100 100,${100 + DigitalR} ${100 - UnitR},100`;
+
+  return (
+    <div className="w-full max-w-[350px] mx-auto bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col items-center print:shadow-none print:border-none">
+      <div className="flex items-center gap-2 mb-2 text-indigo-700 w-full border-b pb-2 print:text-black print:border-black">
+        <Activity className="w-5 h-5 print:hidden" />
+        <h3 className="font-semibold text-sm">Visualisasi Kekuatan (Markah)</h3>
+      </div>
+      <svg viewBox="-30 -30 260 260" className="w-full h-auto overflow-visible mt-2">
+        {[20, 40, 60, 80].map(r => (
+          <polygon key={r} points={`100,${100-r} ${100+r},100 100,${100+r} ${100-r},100`} fill="none" stroke="#e2e8f0" strokeWidth="1" className="print:stroke-gray-300" />
+        ))}
+        <line x1="100" y1="20" x2="100" y2="180" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="3 3" className="print:stroke-gray-400" />
+        <line x1="20" y1="100" x2="180" y2="100" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="3 3" className="print:stroke-gray-400" />
+
+        <polygon points={pts} fill="rgba(79, 70, 229, 0.4)" stroke="#4f46e5" strokeWidth="2" strokeLinejoin="round" className="print:stroke-black print:fill-gray-300" />
+        
+        <circle cx="100" cy={100 - SukanR} r="3" fill="#4338ca" className="print:fill-black" />
+        <circle cx={100 + KoakademikR} cy="100" r="3" fill="#4338ca" className="print:fill-black" />
+        <circle cx="100" cy={100 + DigitalR} r="3" fill="#4338ca" className="print:fill-black" />
+        <circle cx={100 - UnitR} cy="100" r="3" fill="#4338ca" className="print:fill-black" />
+
+        <text x="100" y="5" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black">Sukan ({data['Sukan']})</text>
+        <text x="210" y="104" textAnchor="start" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black">Ko-akademik ({data['Ko-akademik']})</text>
+        <text x="100" y="200" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black">Digital ({data['Digital']})</text>
+        <text x="-10" y="104" textAnchor="end" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black">Unit Beruniform ({data['Unit Beruniform']})</text>
+      </svg>
+    </div>
+  );
+};
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState('form'); 
+  const [records, setRecords] = useState([]);
+  
+  // State untuk Notifikasi & Cetakan
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const [printMode, setPrintMode] = useState('umum'); // 'umum' atau 'tokoh'
+  
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4000);
+  };
+
+  const [editingRecordId, setEditingRecordId] = useState(null);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [masterData, setMasterData] = useState([]);
+
+  // Fetch Data Live dari Google Sheets
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await fetch(CSV_URL);
+        const csvText = await response.text();
+        
+        const parseCSV = (str) => {
+            const arr = [];
+            let quote = false;
+            let row = 0, col = 0;
+            for (let c = 0; c < str.length; c++) {
+                let cc = str[c], nc = str[c+1];
+                arr[row] = arr[row] || [];
+                arr[row][col] = arr[row][col] || '';
+                if (cc === '"' && quote && nc === '"') { arr[row][col] += cc; ++c; continue; }
+                if (cc === '"') { quote = !quote; continue; }
+                if (cc === ',' && !quote) { ++col; continue; }
+                if (cc === '\r' && nc === '\n' && !quote) { ++row; col = 0; ++c; continue; }
+                if (cc === '\n' && !quote) { ++row; col = 0; continue; }
+                if (cc === '\r' && !quote) { ++row; col = 0; continue; }
+                arr[row][col] += cc;
+            }
+            return arr;
+        };
+
+        const rows = parseCSV(csvText);
+        let headers = [];
+        let startIndex = -1;
+        
+        for(let i=0; i<Math.min(5, rows.length); i++) {
+            if(rows[i] && rows[i].some(h => h && h.toUpperCase().includes('NAMA'))) {
+                headers = rows[i].map(h => h ? h.toUpperCase().trim() : '');
+                startIndex = i;
+                break;
+            }
+        }
+
+        if (startIndex !== -1) {
+          const nameIdx = headers.findIndex(h => h === 'NAMA MURID' || h === 'NAMA');
+          const classIdx = headers.findIndex(h => h === 'KELAS' || h === 'NAMA KELAS');
+          const genderIdx = headers.findIndex(h => h === 'JANTINA');
+
+          const parsedData = [];
+          for (let i = startIndex + 1; i < rows.length; i++) {
+            const row = rows[i];
+            if (row && row[nameIdx] && row[nameIdx].trim()) {
+              const jantinaRaw = genderIdx > -1 && row[genderIdx] ? row[genderIdx].trim().toUpperCase() : '';
+              parsedData.push({
+                nama: row[nameIdx].trim().toUpperCase(),
+                kelas: classIdx > -1 && row[classIdx] ? row[classIdx].trim() : 'TIADA KELAS',
+                jantina: jantinaRaw === 'LELAKI' ? 'Lelaki' : (jantinaRaw === 'PEREMPUAN' ? 'Perempuan' : 'Tidak Diketahui')
+              });
+            }
+          }
+          setMasterData(parsedData);
+        }
+      } catch (error) {
+        console.error("Gagal memuat turun data CSV:", error);
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const { dataMurid, jantinaMurid, senaraiKelas } = useMemo(() => {
+    const dKelas = {};
+    const dJantina = {};
+    const kSet = new Set(DEFAULT_KELAS);
+
+    DEFAULT_KELAS.forEach(k => dKelas[k] = []);
+
+    masterData.forEach(murid => {
+       kSet.add(murid.kelas);
+       if (!dKelas[murid.kelas]) dKelas[murid.kelas] = [];
+       if (!dKelas[murid.kelas].includes(murid.nama)) {
+           dKelas[murid.kelas].push(murid.nama);
+       }
+       dJantina[murid.nama] = murid.jantina;
+    });
+
+    Object.keys(dKelas).forEach(k => dKelas[k].sort());
+    const finalKelas = Array.from(kSet).sort();
+
+    return { dataMurid: dKelas, jantinaMurid: dJantina, senaraiKelas: finalKelas };
+  }, [masterData]);
+
+  const getJantina = (nama) => {
+    if (!nama) return 'Tidak Diketahui';
+    return jantinaMurid[nama.trim().toUpperCase()] || 'Tidak Diketahui'; 
+  };
+
+  const initialFormState = {
+    jenisBorang: 'Program', // 'Program' | 'Anugerah' | 'Jawatan'
+    namaProgram: '',
+    namaAnugerah: '',
+    guruList: [{ id: Date.now(), nama: '', isManual: false }],
+    tarikhMula: '',
+    tarikhAkhir: '',
+    kategori: KATEGORI_PILIHAN[0],
+    bidang: BIDANG_PILIHAN[0],
+    peringkat: PERINGKAT_PILIHAN[0],
+    peringkatAnugerah: PERINGKAT_PILIHAN[0],
+    muridList: [{ id: Date.now(), nama: '', kelas: '', jantina: '', pencapaianIndividu: 'Tiada', pencapaianPasukan: 'Tiada', jawatan: 'Tiada', isManual: false }]
+  };
+
+  const [formData, setFormData] = useState(initialFormState);
+
+  const [filterNama, setFilterNama] = useState('Semua');
+  const [filterPeringkat, setFilterPeringkat] = useState('Keseluruhan');
+  const [filterBidang, setFilterBidang] = useState('Semua');
+
+  const uniqueNames = useMemo(() => {
+    const names = new Set();
+    records.forEach(r => r.muridList.forEach(m => {
+      if (m.nama.trim()) names.add(m.nama.toUpperCase());
+    }));
+    return Array.from(names).sort();
+  }, [records]);
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleGuruChange = (id, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      guruList: prev.guruList.map(guru => guru.id === id ? { ...guru, [field]: value } : guru)
+    }));
+  };
+
+  const addGuru = () => {
+    setFormData(prev => ({
+      ...prev,
+      guruList: [...prev.guruList, { id: Date.now(), nama: '', isManual: false }]
+    }));
+  };
+
+  const removeGuru = (id) => {
+    setFormData(prev => ({
+      ...prev,
+      guruList: prev.guruList.filter(guru => guru.id !== id)
+    }));
+  };
+
+  const handleKelasChange = (id, newKelas) => {
+    setFormData(prev => ({
+      ...prev,
+      muridList: prev.muridList.map(murid => murid.id === id ? { ...murid, kelas: newKelas, nama: '', jantina: '', isManual: false } : murid)
+    }));
+  };
+
+  const handleMuridChange = (id, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      muridList: prev.muridList.map(murid => murid.id === id ? { ...murid, [field]: value } : murid)
+    }));
+  };
+
+  const handleNamaWithJantina = (id, newNama) => {
+    setFormData(prev => ({
+      ...prev,
+      muridList: prev.muridList.map(murid => {
+        if (murid.id === id) {
+           const mappedJantina = getJantina(newNama);
+           return { ...murid, nama: newNama, jantina: mappedJantina !== 'Tidak Diketahui' ? mappedJantina : '', isManual: false };
+        }
+        return murid;
+      })
+    }));
+  };
+
+  const addMurid = () => {
+    setFormData(prev => ({
+      ...prev,
+      muridList: [...prev.muridList, { id: Date.now(), nama: '', kelas: '', jantina: '', pencapaianIndividu: 'Tiada', pencapaianPasukan: 'Tiada', jawatan: 'Tiada', isManual: false }]
+    }));
+  };
+
+  const removeMurid = (id) => {
+    setFormData(prev => ({
+      ...prev,
+      muridList: prev.muridList.filter(murid => murid.id !== id)
+    }));
+  };
+
+  const handleEdit = (record) => {
+    setFormData({
+      ...initialFormState,
+      ...record,
+      jenisBorang: record.jenisBorang || 'Program'
+    });
+    setEditingRecordId(record.id);
+    setActiveTab('form');
+  };
+
+  const cancelEdit = () => {
+    setEditingRecordId(null);
+    setFormData(initialFormState);
+  };
+
+  const handleDelete = (id) => {
+    setRecords(prev => prev.filter(r => r.id !== id));
+    if (editingRecordId === id) cancelEdit();
+    showToast('Rekod telah berjaya dipadam.', 'success');
+  };
+
+  const handleSave = (e) => {
+    e.preventDefault();
+    const isProgram = formData.jenisBorang === 'Program';
+    const isAnugerah = formData.jenisBorang === 'Anugerah';
+    const isJawatan = formData.jenisBorang === 'Jawatan';
+
+    if (isProgram || isJawatan) {
+        if (!formData.namaProgram || !formData.tarikhMula || !formData.tarikhAkhir) {
+          showToast(`Sila isikan maklumat wajib (Nama ${isJawatan ? 'Kelab/Sukan' : 'Program'}, Tarikh).`, 'error');
+          return;
+        }
+    } else if (isAnugerah) {
+        if (!formData.namaAnugerah || !formData.tarikhMula || !formData.tarikhAkhir) {
+          showToast('Sila isikan maklumat wajib (Nama Anugerah, Tarikh).', 'error');
+          return;
+        }
+    }
+
+    const validMurid = formData.muridList.filter(m => m.nama.trim() !== '');
+    if (validMurid.length === 0) {
+      showToast('Sila masukkan sekurang-kurangnya nama seorang murid.', 'error');
+      return;
+    }
+    const missingJantina = validMurid.find(m => m.jantina === '');
+    if (missingJantina) {
+      showToast(`Sila pilih Jantina untuk murid bernama ${missingJantina.nama}`, 'error');
+      return;
+    }
+
+    const validGuru = isProgram ? formData.guruList.filter(g => g.nama.trim() !== '') : [];
+    
+    // Validasi tambahan
+    if (isProgram && validGuru.length === 0) {
+       showToast('Sila masukkan sekurang-kurangnya nama seorang guru pengiring.', 'error');
+       return;
+    }
+
+    if (editingRecordId) {
+      setRecords(prev => prev.map(r => r.id === editingRecordId ? { ...formData, guruList: validGuru, muridList: validMurid } : r));
+      setEditingRecordId(null);
+      showToast('Data berjaya dikemaskini!', 'success');
+    } else {
+      const newRecord = { ...formData, guruList: validGuru, id: Date.now().toString(), muridList: validMurid };
+      setRecords(prev => [...prev, newRecord]);
+      showToast('Data berjaya disimpan!', 'success');
+    }
+    
+    setFormData(initialFormState);
+  };
+
+  const { summaryData, spiderData, tokohLelaki, tokohPerempuan } = useMemo(() => {
+    const summaryMap = {};
+    const sData = { 'Sukan': 0, 'Ko-akademik': 0, 'Digital': 0, 'Unit Beruniform': 0 };
+    const skorKeseluruhanMurid = {}; 
+
+    records.forEach(record => {
+      const isProgram = record.jenisBorang === 'Program' || !record.jenisBorang;
+      const isAnugerah = record.jenisBorang === 'Anugerah';
+      const isJawatan = record.jenisBorang === 'Jawatan';
+
+      record.muridList.forEach(murid => {
+        const muridNama = murid.nama.toUpperCase();
+        let currentTotalScore = 0;
+        
+        if (isProgram) {
+            const isIndividuAllowed = ['Individu', 'Individu dan Berpasukan'].includes(record.kategori);
+            const isPasukanAllowed = ['Berpasukan', 'Individu dan Berpasukan'].includes(record.kategori);
+            
+            if (isIndividuAllowed) currentTotalScore += calculateScore(record.peringkat, murid.pencapaianIndividu);
+            if (isPasukanAllowed) currentTotalScore += calculateScore(record.peringkat, murid.pencapaianPasukan);
+            
+        } else if (isAnugerah) {
+            currentTotalScore += (SKOR_PERINGKAT[record.peringkatAnugerah] || 0);
+        } else if (isJawatan) {
+            currentTotalScore += (SKOR_PERINGKAT[record.peringkat] || 0) + (SKOR_JAWATAN[murid.jawatan] || 0);
+        }
+        
+        if (!skorKeseluruhanMurid[muridNama]) {
+             skorKeseluruhanMurid[muridNama] = { nama: muridNama, jantina: murid.jantina, kelas: murid.kelas, totalSkor: 0 };
+        }
+        skorKeseluruhanMurid[muridNama].totalSkor += currentTotalScore;
+
+        const displayPeringkat = isAnugerah ? record.peringkatAnugerah : record.peringkat;
+
+        if (filterPeringkat !== 'Keseluruhan' && displayPeringkat !== filterPeringkat) return;
+        if (filterBidang !== 'Semua' && record.bidang !== filterBidang) return;
+        if (filterNama !== 'Semua' && muridNama !== filterNama) return;
+
+        const key = `${muridNama}_${record.bidang}_${displayPeringkat}`;
+        
+        if (!summaryMap[key]) {
+          summaryMap[key] = { nama: muridNama, bidang: record.bidang, peringkat: displayPeringkat, johan: 0, naibJohan: 0, ke3: 0, ke4: 0, ke5: 0, penyertaan: 0, anugerahKhas: 0 };
+        }
+
+        if (isProgram) {
+            const isIndividuAllowed = ['Individu', 'Individu dan Berpasukan'].includes(record.kategori);
+            const isPasukanAllowed = ['Berpasukan', 'Individu dan Berpasukan'].includes(record.kategori);
+            
+            const addCount = (pencapaian) => {
+              if (!pencapaian || pencapaian === 'Tiada') return;
+              if (pencapaian === 'Johan') summaryMap[key].johan++;
+              if (pencapaian === 'Naib Johan') summaryMap[key].naibJohan++;
+              if (pencapaian === 'Ke-3') summaryMap[key].ke3++;
+              if (pencapaian === 'Ke-4') summaryMap[key].ke4++;
+              if (pencapaian === 'Ke-5') summaryMap[key].ke5++;
+              if (pencapaian === 'Penyertaan') summaryMap[key].penyertaan++;
+            };
+
+            if (isIndividuAllowed) addCount(murid.pencapaianIndividu);
+            if (isPasukanAllowed) addCount(murid.pencapaianPasukan);
+            
+        } else if (isAnugerah) {
+            summaryMap[key].anugerahKhas++;
+        }
+
+        if (sData[record.bidang] !== undefined) {
+          sData[record.bidang] += currentTotalScore; 
+        }
+      });
+    });
+
+    const sortedSummary = Object.values(summaryMap).sort((a, b) => {
+      if (a.nama === b.nama) return a.bidang.localeCompare(b.bidang);
+      return a.nama.localeCompare(b.nama);
+    });
+
+    const senaraiMuridTokoh = Object.values(skorKeseluruhanMurid).sort((a, b) => b.totalSkor - a.totalSkor);
+    
+    return { 
+        summaryData: sortedSummary, 
+        spiderData: sData,
+        tokohLelaki: senaraiMuridTokoh.filter(m => m.jantina === 'Lelaki').slice(0, 2),
+        tokohPerempuan: senaraiMuridTokoh.filter(m => m.jantina === 'Perempuan').slice(0, 2)
+    };
+  }, [records, filterNama, filterPeringkat, filterBidang]);
+
+  // Data Laporan Cetakan
+  const formatTarikh = (mula, akhir) => {
+    if (!akhir || mula === akhir) return mula;
+    return `${mula} hingga ${akhir}`;
+  };
+
+  // 1. Data untuk Cetakan Laporan Biasa (Hanya 1 Tertinggi bagi setiap Bidang)
+  const reportRecords = useMemo(() => {
+    if (filterNama === 'Semua') return [];
+    
+    const bestRecords = {};
+    BIDANG_PILIHAN.forEach(b => bestRecords[b] = null);
+
+    records.forEach(r => {
+        const muridData = r.muridList.find(m => m.nama === filterNama);
+        if (muridData) {
+            const isProgram = r.jenisBorang === 'Program' || !r.jenisBorang;
+            const isAnugerah = r.jenisBorang === 'Anugerah';
+            const isJawatan = r.jenisBorang === 'Jawatan';
+
+            let pencapaianStr = [];
+            let currentScore = 0;
+            let displayProgramName = '';
+            let displayKategori = '';
+            let displayPeringkat = '';
+
+            if (isProgram) {
+                const isIndividuAllowed = ['Individu', 'Individu dan Berpasukan'].includes(r.kategori);
+                const isPasukanAllowed = ['Berpasukan', 'Individu dan Berpasukan'].includes(r.kategori);
+
+                let valIndv = isIndividuAllowed ? (SKOR_PENCAPAIAN[muridData.pencapaianIndividu] || 0) : 0;
+                let valPskn = isPasukanAllowed ? (SKOR_PENCAPAIAN[muridData.pencapaianPasukan] || 0) : 0;
+                let maxPencapaianVal = Math.max(valIndv, valPskn);
+                
+                currentScore = (SKOR_PERINGKAT[r.peringkat] || 0) + maxPencapaianVal;
+                
+                if (isIndividuAllowed && muridData.pencapaianIndividu !== 'Tiada') pencapaianStr.push(`Indv: ${muridData.pencapaianIndividu}`);
+                if (isPasukanAllowed && muridData.pencapaianPasukan !== 'Tiada') pencapaianStr.push(`Pskn: ${muridData.pencapaianPasukan}`);
+                
+                displayProgramName = r.namaProgram;
+                displayKategori = r.kategori;
+                displayPeringkat = r.peringkat;
+            } else if (isAnugerah) {
+                currentScore = (SKOR_PERINGKAT[r.peringkatAnugerah] || 0);
+                pencapaianStr.push(`Penerima Anugerah`);
+                displayProgramName = r.namaAnugerah;
+                displayKategori = 'Anugerah Khas';
+                displayPeringkat = r.peringkatAnugerah;
+            } else if (isJawatan) {
+                currentScore = (SKOR_PERINGKAT[r.peringkat] || 0) + (SKOR_JAWATAN[muridData.jawatan] || 0);
+                pencapaianStr.push(`Jawatan: ${muridData.jawatan}`);
+                displayProgramName = r.namaProgram;
+                displayKategori = 'Jawatan Kelab/Sukan';
+                displayPeringkat = r.peringkat;
+            }
+            
+            const recData = {
+                ...r,
+                namaProgram: displayProgramName,
+                kategori: displayKategori,
+                peringkat: displayPeringkat,
+                tarikhPaparan: formatTarikh(r.tarikhMula, r.tarikhAkhir),
+                pencapaianSebenar: pencapaianStr.length > 0 ? pencapaianStr.join(' | ') : 'Penyertaan / Tiada',
+                score: currentScore
+            };
+
+            if (!bestRecords[r.bidang] || currentScore > bestRecords[r.bidang].score) {
+                bestRecords[r.bidang] = recData;
+            }
+        }
+    });
+
+    return BIDANG_PILIHAN.map(bidang => {
+        if (bestRecords[bidang]) {
+            return bestRecords[bidang];
+        } else {
+            return {
+                bidang: bidang,
+                namaProgram: 'Tiada',
+                tarikhPaparan: '-',
+                kategori: '-',
+                peringkat: '-',
+                pencapaianSebenar: '-'
+            };
+        }
+    });
+  }, [records, filterNama]);
+
+  // 2. Data untuk Cetakan Laporan Calon Tokoh (Kesemua Rekod Tanpa Tapis)
+  const allStudentRecords = useMemo(() => {
+    if (filterNama === 'Semua') return [];
+    
+    let list = [];
+    records.forEach(r => {
+        const muridData = r.muridList.find(m => m.nama === filterNama);
+        if (muridData) {
+            const isProgram = r.jenisBorang === 'Program' || !r.jenisBorang;
+            const isAnugerah = r.jenisBorang === 'Anugerah';
+            const isJawatan = r.jenisBorang === 'Jawatan';
+
+            let pencapaianStr = [];
+            let displayProgramName = '';
+            let displayKategori = '';
+            let displayPeringkat = '';
+
+            if (isProgram) {
+                const isIndividuAllowed = ['Individu', 'Individu dan Berpasukan'].includes(r.kategori);
+                const isPasukanAllowed = ['Berpasukan', 'Individu dan Berpasukan'].includes(r.kategori);
+
+                if (isIndividuAllowed && muridData.pencapaianIndividu !== 'Tiada') pencapaianStr.push(`Indv: ${muridData.pencapaianIndividu}`);
+                if (isPasukanAllowed && muridData.pencapaianPasukan !== 'Tiada') pencapaianStr.push(`Pskn: ${muridData.pencapaianPasukan}`);
+                
+                displayProgramName = r.namaProgram;
+                displayKategori = r.kategori;
+                displayPeringkat = r.peringkat;
+            } else if (isAnugerah) {
+                pencapaianStr.push(`Penerima Anugerah`);
+                displayProgramName = r.namaAnugerah;
+                displayKategori = 'Anugerah Khas';
+                displayPeringkat = r.peringkatAnugerah;
+            } else if (isJawatan) {
+                pencapaianStr.push(`Jawatan: ${muridData.jawatan}`);
+                displayProgramName = r.namaProgram;
+                displayKategori = 'Jawatan Kelab/Sukan';
+                displayPeringkat = r.peringkat;
+            }
+            
+            list.push({
+                ...r,
+                namaProgramPaparan: displayProgramName,
+                kategoriPaparan: displayKategori,
+                peringkatPaparan: displayPeringkat,
+                tarikhPaparan: formatTarikh(r.tarikhMula, r.tarikhAkhir),
+                pencapaianSebenar: pencapaianStr.length > 0 ? pencapaianStr.join(' | ') : 'Penyertaan / Tiada'
+            });
+        }
+    });
+
+    // Susun rekod berdasarkan tarikh terkini ke terlama
+    return list.sort((a,b) => new Date(b.tarikhMula) - new Date(a.tarikhMula));
+  }, [records, filterNama]);
+
+  const cetakStudentInfo = useMemo(() => {
+    if (filterNama === 'Semua') return { kelas: '-', jantina: '-' };
+    const kelasFound = senaraiKelas.find(k => dataMurid[k]?.includes(filterNama));
+    return {
+      kelas: kelasFound || 'Tidak Diketahui',
+      jantina: getJantina(filterNama)
+    };
+  }, [filterNama, senaraiKelas, dataMurid]);
+
+
+  if (isLoadingData) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center font-sans">
+        <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
+        <h2 className="text-xl font-bold text-slate-800">Menyegerak Pangkalan Data...</h2>
+        <p className="text-sm text-slate-500 mt-2">Memuat turun senarai nama dari Pautan Google Sheets secara Live.</p>
+      </div>
+    );
+  }
+
+  const renderForm = () => {
+    const isProgram = formData.jenisBorang === 'Program';
+    const isAnugerah = formData.jenisBorang === 'Anugerah';
+    const isJawatan = formData.jenisBorang === 'Jawatan';
+    
+    const showPencapaianIndividu = isProgram && ['Individu', 'Individu dan Berpasukan'].includes(formData.kategori);
+    const showPencapaianPasukan = isProgram && ['Berpasukan', 'Individu dan Berpasukan'].includes(formData.kategori);
+    const allowMultipleMurid = true;
+
+    return (
+      <form onSubmit={handleSave} className="space-y-6">
+        
+        {/* TAB TOGGLE: PROGRAM vs ANUGERAH vs JAWATAN */}
+        <div className="flex flex-col md:flex-row gap-4 mb-6">
+          <button 
+            type="button"
+            onClick={() => setFormData(prev => ({ ...prev, jenisBorang: 'Program' }))}
+            className={`flex-1 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition ${isProgram ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}
+          >
+            <Trophy className="w-5 h-5" /> Daftar Program / Pertandingan
+          </button>
+          <button 
+            type="button"
+            onClick={() => setFormData(prev => ({ ...prev, jenisBorang: 'Anugerah' }))}
+            className={`flex-1 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition ${isAnugerah ? 'bg-amber-600 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}
+          >
+            <Award className="w-5 h-5" /> Daftar Anugerah Khas
+          </button>
+          <button 
+            type="button"
+            onClick={() => setFormData(prev => ({ ...prev, jenisBorang: 'Jawatan' }))}
+            className={`flex-1 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition ${isJawatan ? 'bg-emerald-600 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}
+          >
+            <Star className="w-5 h-5" /> Daftar Jawatan
+          </button>
+        </div>
+
+        {/* BOX 1: MAKLUMAT PROGRAM ATAU ANUGERAH ATAU JAWATAN */}
+        {isProgram ? (
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <div className="flex items-center gap-2 mb-4 text-blue-800 border-b pb-2">
+                <Trophy className="w-5 h-5" />
+                <h2 className="text-lg font-semibold">Maklumat Program / Pertandingan</h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="col-span-1 md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nama Pertandingan / Bengkel / Program</label>
+                  <input type="text" name="namaProgram" value={formData.namaProgram} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required placeholder="Sila masukkan nama program..." />
+                </div>
+                
+                <div className="col-span-1 md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tarikh</label>
+                  <div className="flex items-center gap-3">
+                    <input type="date" name="tarikhMula" value={formData.tarikhMula} onChange={handleInputChange} className="w-full md:w-1/3 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required />
+                    <span className="text-sm font-medium text-gray-600">hingga</span>
+                    <input type="date" name="tarikhAkhir" value={formData.tarikhAkhir} onChange={handleInputChange} className="w-full md:w-1/3 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required />
+                  </div>
+                </div>
+                
+                <div className="col-span-1 md:col-span-2 bg-slate-50 p-4 rounded-lg border border-slate-200 mt-2">
+                  <div className="flex justify-between items-center mb-3">
+                     <label className="block text-sm font-bold text-slate-700 flex items-center gap-2">
+                       <UserCheck className="w-4 h-4 text-blue-600"/> Senarai Jurulatih / Guru Pengiring
+                     </label>
+                     <button type="button" onClick={addGuru} className="text-xs bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1.5 rounded-md flex items-center gap-1 font-medium transition">
+                       <Plus className="w-3 h-3" /> Tambah Guru
+                     </button>
+                  </div>
+                  <div className="space-y-3">
+                    {formData.guruList.map((guru, idx) => (
+                       <div key={guru.id} className="flex gap-2 items-start">
+                          <div className="flex-1">
+                            {guru.isManual ? (
+                              <div className="flex gap-2">
+                                <input type="text" placeholder="Taip nama penuh guru" value={guru.nama} onChange={(e) => handleGuruChange(guru.id, 'nama', e.target.value.toUpperCase())} className="w-full p-2 text-sm border border-gray-300 rounded-md bg-white uppercase focus:ring-blue-500 focus:border-blue-500" required />
+                                <button type="button" onClick={() => { handleGuruChange(guru.id, 'isManual', false); handleGuruChange(guru.id, 'nama', ''); }} className="flex items-center justify-center gap-1 text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 rounded-md transition whitespace-nowrap">
+                                  <List className="w-4 h-4" /> Batal
+                                </button>
+                              </div>
+                            ) : (
+                              <select value={guru.nama || ""} onChange={(e) => { if (e.target.value === 'MANUAL') { handleGuruChange(guru.id, 'isManual', true); handleGuruChange(guru.id, 'nama', ''); } else { handleGuruChange(guru.id, 'nama', e.target.value); } }} className="w-full p-2 text-sm border border-gray-300 rounded-md bg-white focus:ring-blue-500 focus:border-blue-500" required>
+                                <option value="" disabled>Pilih Nama Guru {formData.guruList.length > 1 ? idx + 1 : ''}</option>
+                                {SENARAI_GURU.map(nama => <option key={nama} value={nama}>{nama}</option>)}
+                                <option value="MANUAL" className="font-semibold text-blue-600 bg-blue-50">+ Tiada dalam senarai (Taip Manual)</option>
+                              </select>
+                            )}
+                          </div>
+                          {formData.guruList.length > 1 && (
+                            <button type="button" onClick={() => removeGuru(guru.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-md transition" title="Buang guru"><Trash2 className="w-4 h-4" /></button>
+                          )}
+                       </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Kategori</label>
+                  <select name="kategori" value={formData.kategori} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                    {KATEGORI_PILIHAN.map(k => <option key={k} value={k}>{k}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Bidang</label>
+                  <select name="bidang" value={formData.bidang} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                    {BIDANG_PILIHAN.map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Peringkat</label>
+                  <select name="peringkat" value={formData.peringkat} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                    {PERINGKAT_PILIHAN.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+        ) : isAnugerah ? (
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-amber-200 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-1 h-full bg-amber-500"></div>
+                <div className="flex items-center gap-2 mb-4 text-amber-800 border-b border-amber-100 pb-2">
+                  <Award className="w-5 h-5" />
+                  <h2 className="text-lg font-semibold">Maklumat Anugerah Khas</h2>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="col-span-1 md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nama Anugerah</label>
+                    <input type="text" name="namaAnugerah" value={formData.namaAnugerah} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required placeholder="Cth: Anugerah Tokoh Nilam, Pengakap Raja" />
+                  </div>
+                  
+                  <div className="col-span-1 md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tarikh Penganugerahan</label>
+                    <div className="flex items-center gap-3">
+                      <input type="date" name="tarikhMula" value={formData.tarikhMula} onChange={handleInputChange} className="w-full md:w-1/3 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required />
+                      <span className="text-sm font-medium text-gray-600">hingga</span>
+                      <input type="date" name="tarikhAkhir" value={formData.tarikhAkhir} onChange={handleInputChange} className="w-full md:w-1/3 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Bidang</label>
+                    <select name="bidang" value={formData.bidang} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                      {BIDANG_PILIHAN.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Peringkat Anugerah</label>
+                    <select name="peringkatAnugerah" value={formData.peringkatAnugerah} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                      {PERINGKAT_PILIHAN.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+                </div>
+            </div>
+        ) : (
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-emerald-200 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500"></div>
+                <div className="flex items-center gap-2 mb-4 text-emerald-800 border-b border-emerald-100 pb-2">
+                  <Star className="w-5 h-5" />
+                  <h2 className="text-lg font-semibold">Maklumat Jawatan (Kelab/Sukan/Unit Beruniform)</h2>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="col-span-1 md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nama Kelab / Persatuan / Sukan / Unit Beruniform</label>
+                    <select name="namaProgram" value={formData.namaProgram} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                      <option value="" disabled>Pilih Kelab / Sukan / Unit Beruniform</option>
+                      <optgroup label="Kelab">
+                        <option value="Kelab ICT">Kelab ICT</option>
+                        <option value="Kelab Pencegahan Jenayah">Kelab Pencegahan Jenayah</option>
+                        <option value="Kelab Pencinta Alam Sekitar">Kelab Pencinta Alam Sekitar</option>
+                        <option value="Kelab Rukun Negara">Kelab Rukun Negara</option>
+                      </optgroup>
+                      <optgroup label="Sukan">
+                        <option value="Petanque">Petanque</option>
+                        <option value="Sukan Stacking">Sukan Stacking</option>
+                      </optgroup>
+                      <optgroup label="Unit Beruniform">
+                        <option value="Pengakap">Pengakap</option>
+                      </optgroup>
+                      <option value="Tidak Berkaitan">Tidak Berkaitan</option>
+                    </select>
+                  </div>
+                  
+                  <div className="col-span-1 md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Sesi / Tarikh Lantikan</label>
+                    <div className="flex items-center gap-3">
+                      <input type="date" name="tarikhMula" value={formData.tarikhMula} onChange={handleInputChange} className="w-full md:w-1/3 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required />
+                      <span className="text-sm font-medium text-gray-600">hingga</span>
+                      <input type="date" name="tarikhAkhir" value={formData.tarikhAkhir} onChange={handleInputChange} className="w-full md:w-1/3 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Bidang</label>
+                    <select name="bidang" value={formData.bidang} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                      {BIDANG_PILIHAN.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Peringkat Jawatan</label>
+                    <select name="peringkat" value={formData.peringkat} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                      {PERINGKAT_PILIHAN.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+                </div>
+            </div>
+        )}
+
+        {/* BOX 2: MAKLUMAT MURID */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-4 border-b pb-2">
+            <div className="flex items-center gap-2 text-blue-800">
+              <Users className="w-5 h-5" />
+              <h2 className="text-lg font-semibold">{isProgram ? 'Maklumat Murid' : isAnugerah ? 'Senarai Penerima Anugerah' : 'Senarai Jawatan Murid'}</h2>
+            </div>
+            {allowMultipleMurid && (
+              <button type="button" onClick={addMurid} className="text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded-md font-medium flex items-center gap-1 transition">
+                <Plus className="w-4 h-4" /> Tambah Murid
+              </button>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            {formData.muridList.map((murid, index) => {
+              const senaraiNamaDropdown = dataMurid[murid.kelas] || [];
+              
+              return (
+                <div key={murid.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200 flex flex-col gap-3">
+                  
+                  {/* Baris 1: Kelas, Nama, Jantina */}
+                  <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-end w-full">
+                    <div className="w-full lg:w-32 shrink-0">
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Kelas</label>
+                      <select value={murid.kelas} onChange={(e) => handleKelasChange(murid.id, e.target.value)} className="w-full p-2 text-sm border border-gray-300 rounded-md bg-white focus:ring-blue-500 focus:border-blue-500" required>
+                        <option value="" disabled>Pilih Kelas</option>
+                        {senaraiKelas.map(k => <option key={k} value={k}>{k}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex-1 w-full relative">
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Nama Murid {formData.muridList.length > 1 ? index + 1 : ''}</label>
+                      {!murid.kelas ? (
+                        <input type="text" placeholder="Sila pilih kelas dahulu" className="w-full p-2 text-sm border border-gray-300 rounded-md bg-gray-100 text-gray-400" disabled />
+                      ) : murid.isManual ? (
+                        <div className="flex gap-2">
+                          <input type="text" placeholder="Taip nama penuh murid" value={murid.nama} onChange={(e) => handleMuridChange(murid.id, 'nama', e.target.value.toUpperCase())} className="w-full p-2 text-sm border border-gray-300 rounded-md bg-white uppercase focus:ring-blue-500 focus:border-blue-500" required />
+                          <button type="button" onClick={() => { handleMuridChange(murid.id, 'isManual', false); handleMuridChange(murid.id, 'nama', ''); handleMuridChange(murid.id, 'jantina', ''); }} className="flex items-center justify-center gap-1 text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 rounded-md transition whitespace-nowrap"><List className="w-4 h-4" /> Batal</button>
+                        </div>
+                      ) : (
+                        <select value={murid.nama || ""} onChange={(e) => { if (e.target.value === 'MANUAL') { handleMuridChange(murid.id, 'isManual', true); handleMuridChange(murid.id, 'nama', ''); handleMuridChange(murid.id, 'jantina', ''); } else { handleNamaWithJantina(murid.id, e.target.value); } }} className="w-full p-2 text-sm border border-gray-300 rounded-md bg-white focus:ring-blue-500 focus:border-blue-500" required>
+                          <option value="" disabled>Pilih Nama Murid</option>
+                          {senaraiNamaDropdown.map(nama => <option key={nama} value={nama}>{nama}</option>)}
+                          <option value="MANUAL" className="font-semibold text-blue-600 bg-blue-50">+ Tiada dalam senarai (Taip Manual)</option>
+                        </select>
+                      )}
+                    </div>
+                    <div className="w-full lg:w-32 shrink-0">
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Jantina</label>
+                      <select value={murid.jantina} onChange={(e) => handleMuridChange(murid.id, 'jantina', e.target.value)} className={`w-full p-2 text-sm border rounded-md focus:ring-blue-500 focus:border-blue-500 ${!murid.isManual && murid.nama ? 'bg-indigo-50 border-indigo-200 text-indigo-700 cursor-not-allowed font-medium' : 'bg-white border-gray-300'}`} disabled={!murid.isManual && murid.nama !== ''} required>
+                        <option value="" disabled>Pilih Jantina</option>
+                        <option value="Lelaki">Lelaki</option>
+                        <option value="Perempuan">Perempuan</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Baris 2: Pencapaian / Jawatan */}
+                  {isProgram && (
+                    <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-end w-full mt-1 border-t border-gray-200 pt-3">
+                      {showPencapaianIndividu && (
+                        <div className="w-full lg:w-40 shrink-0">
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Pencapaian Indv.</label>
+                          <select value={murid.pencapaianIndividu} onChange={(e) => handleMuridChange(murid.id, 'pencapaianIndividu', e.target.value)} className="w-full p-2 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                            {PENCAPAIAN_INDIVIDU_PILIHAN.map(p => <option key={p} value={p}>{p}</option>)}
+                          </select>
+                        </div>
+                      )}
+                      {showPencapaianPasukan && (
+                        <div className="w-full lg:w-40 shrink-0">
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Pencapaian Pskn.</label>
+                          <select value={murid.pencapaianPasukan} onChange={(e) => handleMuridChange(murid.id, 'pencapaianPasukan', e.target.value)} className="w-full p-2 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                            {PENCAPAIAN_PASUKAN_PILIHAN.map(p => <option key={p} value={p}>{p}</option>)}
+                          </select>
+                        </div>
+                      )}
+                      
+                      {allowMultipleMurid && formData.muridList.length > 1 && (
+                        <button type="button" onClick={() => removeMurid(murid.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-md transition mt-4 lg:mt-0 ml-auto" title="Buang murid"><Trash2 className="w-5 h-5" /></button>
+                      )}
+                    </div>
+                  )}
+
+                  {isJawatan && (
+                    <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-end w-full mt-1 border-t border-gray-200 pt-3">
+                      <div className="w-full lg:w-64 shrink-0">
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Jawatan Disandang</label>
+                        <select value={murid.jawatan || 'Tiada'} onChange={(e) => handleMuridChange(murid.id, 'jawatan', e.target.value)} className="w-full p-2 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                          {JAWATAN_PILIHAN.map(p => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                      </div>
+                      
+                      {allowMultipleMurid && formData.muridList.length > 1 && (
+                        <button type="button" onClick={() => removeMurid(murid.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-md transition mt-4 lg:mt-0 ml-auto" title="Buang murid"><Trash2 className="w-5 h-5" /></button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Butang Buang Untuk Anugerah Khas */}
+                  {!isProgram && !isJawatan && allowMultipleMurid && formData.muridList.length > 1 && (
+                      <div className="flex justify-end w-full mt-1">
+                         <button type="button" onClick={() => removeMurid(murid.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-md transition" title="Buang murid"><Trash2 className="w-4 h-4" /></button>
+                      </div>
+                  )}
+
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3">
+          {editingRecordId && (
+            <button type="button" onClick={cancelEdit} className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-medium py-2.5 px-6 rounded-lg shadow transition">
+              Batal Edit
+            </button>
+          )}
+          <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-6 rounded-lg shadow flex items-center gap-2 transition">
+            <Save className="w-5 h-5" />
+            {editingRecordId ? 'Kemaskini Rekod' : 'Simpan Rekod'}
+          </button>
+        </div>
+      </form>
+    );
+  };
+
+  const renderRecordList = () => {
+    return (
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="flex items-center gap-2 mb-6 text-blue-800 border-b pb-4">
+          <List className="w-6 h-6" />
+          <h2 className="text-xl font-semibold">Senarai Rekod Tersimpan</h2>
+        </div>
+        {records.length === 0 ? (
+          <div className="text-center py-12 text-gray-400">
+            <FileText className="w-16 h-16 mx-auto mb-3 opacity-20" />
+            <p>Tiada rekod tersimpan pada waktu ini. Sila tambah rekod di bahagian Pengisian Data.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-gray-50 text-gray-700 uppercase text-xs border-y">
+                <tr>
+                  <th className="px-4 py-3 border-r">Tarikh</th>
+                  <th className="px-4 py-3 border-r">Nama Program/Kelab/Anugerah</th>
+                  <th className="px-4 py-3 border-r">Kategori / Bidang</th>
+                  <th className="px-4 py-3 border-r">Peringkat</th>
+                  <th className="px-3 py-3 text-center border-r">Bil. Murid</th>
+                  <th className="px-4 py-3 text-center">Tindakan</th>
+                </tr>
+              </thead>
+              <tbody>
+                {records.map(record => {
+                  const isProgram = record.jenisBorang === 'Program' || !record.jenisBorang;
+                  const isJawatan = record.jenisBorang === 'Jawatan';
+                  const isAnugerah = record.jenisBorang === 'Anugerah';
+                  
+                  const title = isProgram || isJawatan ? record.namaProgram : record.namaAnugerah;
+                  const kat = isProgram ? record.kategori : isJawatan ? 'Jawatan Kelab/Persatuan' : 'Anugerah Khas';
+                  const per = isProgram || isJawatan ? record.peringkat : record.peringkatAnugerah;
+                  
+                  return (
+                    <tr key={record.id} className="border-b hover:bg-gray-50">
+                      <td className="px-4 py-3 border-r text-gray-600 whitespace-nowrap">
+                         {record.tarikhMula} <br/><span className="text-xs text-gray-400">hingga</span><br/> {record.tarikhAkhir}
+                      </td>
+                      <td className="px-4 py-3 border-r font-medium text-gray-900">
+                        {title}
+                        {isJawatan && <span className="ml-2 bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase">Jawatan</span>}
+                        {isAnugerah && <span className="ml-2 bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase">Anugerah</span>}
+                      </td>
+                      <td className="px-4 py-3 border-r">
+                         <span className="block text-xs font-semibold text-slate-600">{kat}</span>
+                         <span className="block text-xs text-blue-600 mt-1">{record.bidang}</span>
+                      </td>
+                      <td className="px-4 py-3 border-r">
+                         <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs font-medium">{per}</span>
+                      </td>
+                      <td className="px-3 py-3 text-center border-r font-semibold text-gray-700">
+                         {record.muridList.length} Murid
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex justify-center gap-2">
+                          <button onClick={() => handleEdit(record)} className="p-1.5 bg-amber-100 text-amber-700 hover:bg-amber-200 rounded-md transition" title="Edit Rekod">
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => handleDelete(record.id)} className="p-1.5 bg-red-100 text-red-700 hover:bg-red-200 rounded-md transition" title="Padam Rekod">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderSummary = () => {
+    return (
+      <div className="space-y-6">
+        {records.length > 0 && (
+          <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-6 rounded-xl border border-amber-200 shadow-sm">
+            <div className="flex items-center gap-2 mb-6 text-amber-700 border-b border-amber-200 pb-4">
+              <Crown className="w-6 h-6" />
+              <h2 className="text-xl font-semibold">Calon Tokoh Kokurikulum</h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-white p-4 rounded-lg shadow-sm border border-amber-100">
+                 <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500"></div> Tokoh Lelaki</h3>
+                 {tokohLelaki.length === 0 ? ( <p className="text-sm text-gray-400 italic">Tiada calon.</p> ) : (
+                    <ul className="space-y-3">
+                      {tokohLelaki.map((murid, idx) => (
+                         <li key={idx} className="flex items-center justify-between text-sm">
+                           <div className="flex flex-col">
+                               <span className="font-semibold text-gray-800">{murid.nama}</span>
+                               <span className="text-xs text-gray-500">{murid.kelas}</span>
+                           </div>
+                           <div className="flex items-center gap-2">
+                               <span className="font-bold text-amber-600 bg-amber-100 px-2 py-1 rounded-md">{murid.totalSkor} pts</span>
+                               <button 
+                                 onClick={() => { 
+                                     setFilterNama(murid.nama); 
+                                     setPrintMode('tokoh'); 
+                                     setTimeout(() => window.print(), 100); 
+                                 }} 
+                                 className="p-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition" 
+                                 title="Jana Laporan Tokoh (Semua Rekod)"
+                               >
+                                   <Printer className="w-4 h-4" />
+                               </button>
+                           </div>
+                         </li>
+                      ))}
+                    </ul>
+                 )}
+              </div>
+              <div className="bg-white p-4 rounded-lg shadow-sm border border-amber-100">
+                 <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-pink-500"></div> Tokoh Perempuan</h3>
+                 {tokohPerempuan.length === 0 ? ( <p className="text-sm text-gray-400 italic">Tiada calon.</p> ) : (
+                    <ul className="space-y-3">
+                      {tokohPerempuan.map((murid, idx) => (
+                         <li key={idx} className="flex items-center justify-between text-sm">
+                           <div className="flex flex-col">
+                               <span className="font-semibold text-gray-800">{murid.nama}</span>
+                               <span className="text-xs text-gray-500">{murid.kelas}</span>
+                           </div>
+                           <div className="flex items-center gap-2">
+                               <span className="font-bold text-amber-600 bg-amber-100 px-2 py-1 rounded-md">{murid.totalSkor} pts</span>
+                               <button 
+                                 onClick={() => { 
+                                     setFilterNama(murid.nama); 
+                                     setPrintMode('tokoh'); 
+                                     setTimeout(() => window.print(), 100); 
+                                 }} 
+                                 className="p-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition" 
+                                 title="Jana Laporan Tokoh (Semua Rekod)"
+                               >
+                                   <Printer className="w-4 h-4" />
+                               </button>
+                           </div>
+                         </li>
+                      ))}
+                    </ul>
+                 )}
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 mt-4 italic">* Pemilihan berdasarkan kumulatif markah merit Peringkat (cth: Antarabangsa=60) & Pencapaian (cth: Johan=6). Jantina dirujuk secara live dari pautan Google Sheets.</p>
+          </div>
+        )}
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="flex items-center justify-between gap-2 mb-6 border-b pb-4">
+            <div className="flex items-center gap-2 text-emerald-700">
+                <BarChart2 className="w-6 h-6" />
+                <h2 className="text-xl font-semibold">Rumusan Pencapaian Murid</h2>
+            </div>
+            </div>
+
+            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 mb-6">
+              <div className="flex items-center gap-2 mb-3 text-slate-700">
+                  <Filter className="w-4 h-4" />
+                  <span className="text-sm font-semibold">Pilihan Paparan & Laporan</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Nama Murid</label>
+                  <select value={filterNama} onChange={e => setFilterNama(e.target.value)} className="w-full p-2 text-sm border border-gray-300 rounded-md bg-white">
+                      <option value="Semua">Semua Murid</option>
+                      {uniqueNames.map(name => <option key={name} value={name}>{name}</option>)}
+                  </select>
+                  </div>
+                  <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Peringkat</label>
+                  <select value={filterPeringkat} onChange={e => setFilterPeringkat(e.target.value)} className="w-full p-2 text-sm border border-gray-300 rounded-md bg-white">
+                      <option value="Keseluruhan">Keseluruhan (Semua Peringkat)</option>
+                      {PERINGKAT_PILIHAN.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                  </div>
+                  <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Bidang</label>
+                  <select value={filterBidang} onChange={e => setFilterBidang(e.target.value)} className="w-full p-2 text-sm border border-gray-300 rounded-md bg-white">
+                      <option value="Semua">Semua Bidang</option>
+                      {BIDANG_PILIHAN.map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                  </div>
+              </div>
+              <div className="mt-4 pt-4 border-t border-slate-200 flex justify-end">
+                <button 
+                  onClick={() => {
+                    if (filterNama === 'Semua') {
+                      showToast('Sila pilih nama murid spesifik pada ruang Nama Murid di atas untuk menjana Laporan.', 'error');
+                    } else {
+                      setPrintMode('umum');
+                      setTimeout(() => window.print(), 100);
+                    }
+                  }}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition ${filterNama === 'Semua' ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white shadow-sm'}`}
+                >
+                  <Printer className="w-4 h-4" /> Jana Laporan (PDF)
+                </button>
+              </div>
+            </div>
+
+            {summaryData.length === 0 ? (
+            <div className="text-center py-12 text-gray-400">
+                <Award className="w-16 h-16 mx-auto mb-3 opacity-20" />
+                <p>Tiada rekod dipaparkan berdasarkan pilihan ini.</p>
+            </div>
+            ) : (
+            <div className="flex flex-col lg:flex-row gap-8 items-start">
+                <div className="overflow-x-auto w-full flex-1">
+                <table className="w-full text-sm text-left">
+                    <thead className="bg-gray-50 text-gray-700 uppercase text-xs border-y">
+                    <tr>
+                        <th className="px-4 py-3 border-r">Nama Murid</th>
+                        <th className="px-4 py-3 border-r">Bidang</th>
+                        <th className="px-4 py-3 border-r">Peringkat</th>
+                        <th className="px-3 py-3 text-center border-r text-amber-600">Johan</th>
+                        <th className="px-3 py-3 text-center border-r text-slate-500">Naib Johan</th>
+                        <th className="px-3 py-3 text-center border-r text-orange-700">Ke-3</th>
+                        <th className="px-3 py-3 text-center border-r">Ke-4</th>
+                        <th className="px-3 py-3 text-center border-r">Ke-5</th>
+                        <th className="px-3 py-3 text-center border-r">Penyertaan</th>
+                        <th className="px-3 py-3 text-center">Anugerah Khas</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {summaryData.map((row, idx) => (
+                        <tr key={idx} className="border-b hover:bg-gray-50">
+                        <td className="px-4 py-3 font-medium text-gray-900 border-r">{row.nama}</td>
+                        <td className="px-4 py-3 border-r">
+                            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">{row.bidang}</span>
+                        </td>
+                        <td className="px-4 py-3 border-r">
+                            <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs font-medium">
+                            {row.peringkat}
+                            </span>
+                        </td>
+                        <td className="px-3 py-3 text-center border-r font-semibold">{row.johan || '-'}</td>
+                        <td className="px-3 py-3 text-center border-r font-semibold">{row.naibJohan || '-'}</td>
+                        <td className="px-3 py-3 text-center border-r font-semibold">{row.ke3 || '-'}</td>
+                        <td className="px-3 py-3 text-center border-r">{row.ke4 || '-'}</td>
+                        <td className="px-3 py-3 text-center border-r">{row.ke5 || '-'}</td>
+                        <td className="px-3 py-3 text-center border-r">{row.penyertaan || '-'}</td>
+                        <td className="px-3 py-3 text-center font-bold text-indigo-600">{row.anugerahKhas > 0 ? row.anugerahKhas : '-'}</td>
+                        </tr>
+                    ))}
+                    </tbody>
+                </table>
+                </div>
+
+                <div className="w-full lg:w-[350px] shrink-0">
+                <SpiderChart data={spiderData} />
+                </div>
+            </div>
+            )}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <>
+      {/* --- PAPARAN UTAMA SISTEM WEB (Dihilangkan semasa cetakan) --- */}
+      <div className="min-h-screen bg-slate-50 font-sans pb-12 print:hidden">
+        <header className="bg-blue-900 text-white p-6 shadow-md">
+          <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold">Sistem Rekod Pencapaian Kokurikulum Murid</h1>
+              <p className="text-blue-200 text-sm mt-1">Rujukan lengkap dan pantas pencapaian kokurikulum murid.</p>
+            </div>
+            <div className="flex bg-blue-800 rounded-lg p-1 flex-wrap gap-1">
+              <button onClick={() => setActiveTab('form')} className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition ${activeTab === 'form' ? 'bg-white text-blue-900 shadow' : 'text-white hover:bg-blue-700'}`}><FileText className="w-4 h-4" /> Pengisian Data</button>
+              <button onClick={() => setActiveTab('records')} className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition ${activeTab === 'records' ? 'bg-white text-blue-900 shadow' : 'text-white hover:bg-blue-700'}`}><List className="w-4 h-4" /> Senarai Rekod</button>
+              <button onClick={() => setActiveTab('summary')} className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition ${activeTab === 'summary' ? 'bg-white text-blue-900 shadow' : 'text-white hover:bg-blue-700'}`}><BarChart2 className="w-4 h-4" /> Rumusan</button>
+            </div>
+          </div>
+        </header>
+
+        <main className="max-w-5xl mx-auto mt-8 px-4">
+          {toast.show && (
+            <div className={`mb-6 p-4 rounded-lg font-medium text-sm border shadow-sm transition-all flex items-center justify-center ${toast.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+              {toast.message}
+            </div>
+          )}
+          {activeTab === 'form' && renderForm()}
+          {activeTab === 'records' && renderRecordList()}
+          {activeTab === 'summary' && renderSummary()}
+        </main>
+      </div>
+
+      {/* --- PAPARAN LAPORAN PDF (Hanya ditunjukkan semasa cetakan) --- */}
+      <div className="hidden print:block w-full bg-white text-black p-8 font-sans">
+         {printMode === 'tokoh' ? (
+             // --- FORMAT LAPORAN TOKOH (SEMUA REKOD) ---
+             <div>
+                 <div className="flex flex-col items-center border-b-4 border-black pb-4 mb-6">
+                     <div className="w-24 h-24 flex items-center justify-center overflow-hidden mb-2">
+                         <img 
+                           src="latest 6.5.jpg" 
+                           alt="[Logo Sekolah]" 
+                           className="w-full h-full object-contain" 
+                           onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/150?text=Logo+Sekolah'; }} 
+                         />
+                     </div>
+                     <h1 className="text-2xl font-extrabold uppercase text-center">Sekolah Kebangsaan Pendidikan Khas Miri</h1>
+                     <p className="text-sm font-bold mt-2 bg-gray-800 text-white inline-block px-4 py-1 rounded">LAPORAN CALON TOKOH KOKURIKULUM</p>
+                 </div>
+
+                 {/* Maklumat Murid Laporan Tokoh */}
+                 <div className="mb-6 border-l-4 border-black pl-4">
+                     <table className="text-sm">
+                        <tbody>
+                           <tr><td className="w-32 font-bold py-1">Nama Murid</td><td className="w-4">:</td><td className="py-1 font-semibold text-base">{filterNama !== 'Semua' ? filterNama : ''}</td></tr>
+                           <tr><td className="w-32 font-bold py-1">Kelas</td><td className="w-4">:</td><td className="py-1">{cetakStudentInfo.kelas}</td></tr>
+                           <tr><td className="w-32 font-bold py-1">Jantina</td><td className="w-4">:</td><td className="py-1">{cetakStudentInfo.jantina}</td></tr>
+                        </tbody>
+                     </table>
+                 </div>
+
+                 {/* Senarai Semua Pertandingan Laporan Tokoh */}
+                 <div className="mb-8">
+                     <h3 className="font-bold text-md mb-2 bg-gray-200 p-2">Senarai Penglibatan & Pencapaian Keseluruhan</h3>
+                     <table className="w-full text-sm border-collapse border border-black mt-2">
+                        <thead>
+                           <tr className="bg-gray-100">
+                              <th className="border border-black p-2 text-center w-10">Bil</th>
+                              <th className="border border-black p-2 text-center">Bidang</th>
+                              <th className="border border-black p-2 text-left">Nama Program / Jawatan</th>
+                              <th className="border border-black p-2 text-center">Tarikh / Sesi</th>
+                              <th className="border border-black p-2 text-center">Kategori</th>
+                              <th className="border border-black p-2 text-center">Peringkat</th>
+                              <th className="border border-black p-2 text-center">Pencapaian</th>
+                           </tr>
+                        </thead>
+                        <tbody>
+                           {allStudentRecords.length === 0 ? (
+                              <tr><td colSpan="7" className="text-center p-4 border border-black font-medium italic text-gray-500">Tiada rekod penglibatan kokurikulum untuk murid ini.</td></tr>
+                           ) : (
+                              allStudentRecords.map((r, i) => (
+                                 <tr key={i}>
+                                    <td className="border border-black p-2 text-center">{i+1}</td>
+                                    <td className="border border-black p-2 text-center font-bold text-xs">{r.bidang}</td>
+                                    <td className="border border-black p-2 font-medium">{r.namaProgramPaparan}</td>
+                                    <td className="border border-black p-2 text-center text-xs whitespace-nowrap">{r.tarikhPaparan}</td>
+                                    <td className="border border-black p-2 text-center text-xs">{r.kategoriPaparan}</td>
+                                    <td className="border border-black p-2 text-center font-semibold text-xs">{r.peringkatPaparan}</td>
+                                    <td className="border border-black p-2 text-center font-bold text-xs">{r.pencapaianSebenar}</td>
+                                 </tr>
+                              ))
+                           )}
+                        </tbody>
+                     </table>
+                 </div>
+                 
+                 {/* Tanda Tangan Guru Besar (Tokoh) */}
+                 <div className="mt-16 flex justify-end" style={{ pageBreakInside: 'avoid' }}>
+                     <div className="text-center w-64">
+                         <p className="mb-20 text-sm text-left">Disahkan oleh,</p>
+                         <p className="border-b-2 border-black w-full"></p>
+                         <p className="mt-2 font-bold text-sm">( AZIZ BIN TAHIR )</p>
+                         <p className="text-xs mt-1 font-semibold uppercase">Guru Besar</p>
+                         <p className="text-xs mt-1 font-semibold uppercase">Sekolah Kebangsaan Pendidikan Khas Miri</p>
+                         <p className="text-xs mt-1 text-gray-500">Tarikh Cetakan: {new Date().toLocaleDateString('ms-MY')}</p>
+                     </div>
+                 </div>
+             </div>
+         ) : (
+             // --- FORMAT LAPORAN BIASA / UMUM (TERTINGGI 1 BIDANG) ---
+             <div>
+                 <div className="flex items-center justify-between border-b-4 border-black pb-4 mb-6">
+                     <div className="w-24 h-24 flex items-center justify-center text-xs font-bold text-gray-500 text-center overflow-hidden">
+                         <img 
+                           src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/Coat_of_arms_of_Malaysia.svg/200px-Coat_of_arms_of_Malaysia.svg.png" 
+                           alt="[Jata Negara Malaysia]" 
+                           className="w-full h-full object-contain" 
+                           onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/150?text=Jata+Negara'; }} 
+                         />
+                     </div>
+                     <div className="text-center flex-1 px-4">
+                         <h1 className="text-2xl font-extrabold uppercase">Sekolah Kebangsaan Pendidikan Khas Miri</h1>
+                         <p className="text-sm uppercase font-semibold text-gray-700 mt-1">Sistem Rekod Pencapaian Kokurikulum Murid</p>
+                         <p className="text-sm font-bold mt-2 bg-gray-800 text-white inline-block px-4 py-1 rounded">LAPORAN PENCAPAIAN KOKURIKULUM INDIVIDU</p>
+                     </div>
+                     <div className="w-24 h-24 flex items-center justify-center text-xs font-bold text-gray-500 text-center overflow-hidden">
+                         <img 
+                           src="latest 6.5.jpg" 
+                           alt="[Logo Sekolah]" 
+                           className="w-full h-full object-contain" 
+                           onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/150?text=Logo+Sekolah'; }} 
+                         />
+                     </div>
+                 </div>
+
+                 {/* Maklumat Murid Laporan Umum */}
+                 <div className="mb-6 border-l-4 border-black pl-4">
+                     <table className="text-sm">
+                        <tbody>
+                           <tr><td className="w-32 font-bold py-1">Nama Murid</td><td className="w-4">:</td><td className="py-1 font-semibold text-base">{filterNama !== 'Semua' ? filterNama : ''}</td></tr>
+                           <tr><td className="w-32 font-bold py-1">Kelas</td><td className="w-4">:</td><td className="py-1">{cetakStudentInfo.kelas}</td></tr>
+                           <tr><td className="w-32 font-bold py-1">Jantina</td><td className="w-4">:</td><td className="py-1">{cetakStudentInfo.jantina}</td></tr>
+                        </tbody>
+                     </table>
+                 </div>
+
+                 {/* Senarai Pertandingan Laporan Umum */}
+                 <div className="mb-8">
+                     <h3 className="font-bold text-md mb-2 bg-gray-200 p-2">A. Senarai Penglibatan & Pencapaian Pertandingan (Tertinggi Setiap Bidang)</h3>
+                     <table className="w-full text-sm border-collapse border border-black mt-2">
+                        <thead>
+                           <tr className="bg-gray-100">
+                              <th className="border border-black p-2 text-center w-10">Bil</th>
+                              <th className="border border-black p-2 text-center">Bidang</th>
+                              <th className="border border-black p-2 text-left">Nama Program / Jawatan</th>
+                              <th className="border border-black p-2 text-center">Tarikh / Sesi</th>
+                              <th className="border border-black p-2 text-center">Kategori</th>
+                              <th className="border border-black p-2 text-center">Peringkat</th>
+                              <th className="border border-black p-2 text-center">Pencapaian</th>
+                           </tr>
+                        </thead>
+                        <tbody>
+                           {reportRecords.map((r, i) => (
+                              <tr key={i}>
+                                 <td className="border border-black p-2 text-center">{i+1}</td>
+                                 <td className="border border-black p-2 text-center font-bold text-xs">{r.bidang}</td>
+                                 <td className="border border-black p-2 font-medium">{r.namaProgram}</td>
+                                 <td className="border border-black p-2 text-center text-xs whitespace-nowrap">{r.tarikhPaparan}</td>
+                                 <td className="border border-black p-2 text-center text-xs">{r.kategori}</td>
+                                 <td className="border border-black p-2 text-center font-semibold text-xs">{r.peringkat}</td>
+                                 <td className="border border-black p-2 text-center font-bold text-xs">{r.pencapaianSebenar}</td>
+                              </tr>
+                           ))}
+                        </tbody>
+                     </table>
+                 </div>
+
+                 {/* Analisis Kekuatan & Tanda Tangan Laporan Umum */}
+                 <div className="flex justify-between items-start pt-4" style={{ pageBreakInside: 'avoid' }}>
+                     <div className="w-1/2 pr-8">
+                         <h3 className="font-bold text-md mb-2 bg-gray-200 p-2">B. Analisis Kekuatan & Potensi (Spider Chart)</h3>
+                         <div className="border border-black p-4 mt-2">
+                             <SpiderChart data={spiderData} />
+                             <div className="mt-4 pt-4 border-t border-dashed border-gray-400 text-xs">
+                                 <p className="font-bold mb-1">Rumusan Mata Semasa:</p>
+                                 <ul className="grid grid-cols-2 gap-1">
+                                    <li>• Sukan: {spiderData['Sukan'] || 0} pts</li>
+                                    <li>• Ko-akademik: {spiderData['Ko-akademik'] || 0} pts</li>
+                                    <li>• Digital: {spiderData['Digital'] || 0} pts</li>
+                                    <li>• Beruniform: {spiderData['Unit Beruniform'] || 0} pts</li>
+                                 </ul>
+                             </div>
+                         </div>
+                     </div>
+                     
+                     <div className="w-1/2 flex flex-col justify-end items-end pt-8">
+                         <div className="text-center w-64 mt-32">
+                             <p className="mb-20 text-sm text-left">Disahkan oleh,</p>
+                             <p className="border-b-2 border-black w-full"></p>
+                             <p className="mt-2 font-bold text-sm">( AZIZ BIN TAHIR )</p>
+                             <p className="text-xs mt-1 font-semibold uppercase">Guru Besar</p>
+                             <p className="text-xs mt-1 font-semibold uppercase">Sekolah Kebangsaan Pendidikan Khas Miri</p>
+                             <p className="text-xs mt-1 text-gray-500">Tarikh Cetakan: {new Date().toLocaleDateString('ms-MY')}</p>
+                         </div>
+                     </div>
+                 </div>
+             </div>
+         )}
+      </div>
+    </>
+  );
+}
