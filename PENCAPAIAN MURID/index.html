@@ -360,6 +360,12 @@
           const [filterPeringkat, setFilterPeringkat] = useState('Keseluruhan');
           const [filterBidang, setFilterBidang] = useState('Semua');
           const [filterGuru, setFilterGuru] = useState('Semua');
+          
+          // --- PENAPIS BAHARU ---
+          const [filterPencapaian, setFilterPencapaian] = useState('Semua');
+          const [filterAnugerah, setFilterAnugerah] = useState('Semua');
+          const [filterJawatan, setFilterJawatan] = useState('Semua');
+          const [filterKelas, setFilterKelas] = useState('Semua');
 
           const uniqueNames = useMemo(() => {
             const names = new Set();
@@ -574,9 +580,31 @@
 
                 const displayPeringkat = isAnugerah ? record.peringkatAnugerah : record.peringkat;
 
+                // Penapis Baharu: Kelas
+                if (filterKelas !== 'Semua' && murid.kelas !== filterKelas) return;
+                
                 if (filterPeringkat !== 'Keseluruhan' && displayPeringkat !== filterPeringkat) return;
                 if (filterBidang !== 'Semua' && record.bidang !== filterBidang) return;
                 if (filterNama !== 'Semua' && muridNama !== filterNama) return;
+
+                // Penapis Baharu: Pencapaian
+                if (filterPencapaian !== 'Semua') {
+                    if (!isProgram) return; // Hanya borang program ada pencapaian Johan/Naib Johan dll
+                    if (murid.pencapaianIndividu !== filterPencapaian && murid.pencapaianPasukan !== filterPencapaian) return;
+                }
+
+                // Penapis Baharu: Anugerah Khas
+                if (filterAnugerah !== 'Semua') {
+                    const hasAnugerah = isAnugerah || (isProgram && murid.anugerah && murid.anugerah.trim() !== '');
+                    if (filterAnugerah === 'Ada Anugerah' && !hasAnugerah) return;
+                    if (filterAnugerah === 'Tiada Anugerah' && hasAnugerah) return;
+                }
+
+                // Penapis Baharu: Jawatan
+                if (filterJawatan !== 'Semua') {
+                    if (!isJawatan) return; // Hanya borang jawatan ada spesifikasi jawatan
+                    if (murid.jawatan !== filterJawatan) return;
+                }
 
                 const key = `${muridNama}_${record.bidang}_${displayPeringkat}`;
                 
@@ -628,7 +656,7 @@
                 tokohLelaki: senaraiMuridTokoh.filter(m => m.jantina === 'Lelaki').slice(0, 2),
                 tokohPerempuan: senaraiMuridTokoh.filter(m => m.jantina === 'Perempuan').slice(0, 2)
             };
-          }, [records, filterNama, filterPeringkat, filterBidang]);
+          }, [records, filterNama, filterPeringkat, filterBidang, filterPencapaian, filterAnugerah, filterJawatan, filterKelas]);
 
           const guruReportData = useMemo(() => {
             const data = {};
@@ -1269,7 +1297,14 @@
                       <Filter className="w-4 h-4" />
                       <span className="text-sm font-semibold">Pilihan Paparan & Laporan</span>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                      <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Kelas</label>
+                      <select value={filterKelas} onChange={e => setFilterKelas(e.target.value)} className="w-full p-2 text-sm border border-gray-300 rounded-md bg-white">
+                          <option value="Semua">Semua Kelas</option>
+                          {senaraiKelas.map(k => <option key={k} value={k}>{k}</option>)}
+                      </select>
+                      </div>
                       <div>
                       <label className="block text-xs font-medium text-gray-500 mb-1">Nama Murid</label>
                       <select value={filterNama} onChange={e => setFilterNama(e.target.value)} className="w-full p-2 text-sm border border-gray-300 rounded-md bg-white">
@@ -1292,6 +1327,32 @@
                       </select>
                       </div>
                   </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Pencapaian</label>
+                      <select value={filterPencapaian} onChange={e => setFilterPencapaian(e.target.value)} className="w-full p-2 text-sm border border-gray-300 rounded-md bg-white">
+                          <option value="Semua">Semua Pencapaian</option>
+                          {PENCAPAIAN_INDIVIDU_PILIHAN.filter(p => p !== 'Tiada').map(p => <option key={p} value={p}>{p}</option>)}
+                      </select>
+                      </div>
+                      <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Anugerah Khas</label>
+                      <select value={filterAnugerah} onChange={e => setFilterAnugerah(e.target.value)} className="w-full p-2 text-sm border border-gray-300 rounded-md bg-white">
+                          <option value="Semua">Semua Anugerah</option>
+                          <option value="Ada Anugerah">Ada Anugerah</option>
+                          <option value="Tiada Anugerah">Tiada Anugerah</option>
+                      </select>
+                      </div>
+                      <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Jawatan</label>
+                      <select value={filterJawatan} onChange={e => setFilterJawatan(e.target.value)} className="w-full p-2 text-sm border border-gray-300 rounded-md bg-white">
+                          <option value="Semua">Semua Jawatan</option>
+                          {JAWATAN_PILIHAN.filter(j => j !== 'Tiada').map(j => <option key={j} value={j}>{j}</option>)}
+                      </select>
+                      </div>
+                  </div>
+
                   <div className="mt-4 pt-4 border-t border-slate-200 flex justify-end">
                     <button 
                       onClick={() => {
