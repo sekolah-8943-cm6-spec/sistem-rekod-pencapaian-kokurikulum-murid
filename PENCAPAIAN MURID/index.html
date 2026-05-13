@@ -46,7 +46,9 @@
         // Ini memastikan tiada ralat "permission" semasa mencuba di paparan preview ini.
         const isCanvasEnv = typeof __firebase_config !== 'undefined' && __firebase_config;
         const firebaseConfig = isCanvasEnv ? JSON.parse(__firebase_config) : myFirebaseConfig;
-        const activeAppId = isCanvasEnv && typeof __app_id !== 'undefined' ? __app_id : "rekod-kk-murid-app";
+        
+        // Tetapkan ID Aplikasi dengan betul untuk laluan (path) Firestore
+        const activeAppId = isCanvasEnv && typeof __app_id !== 'undefined' ? __app_id : "rekod-kk-murid";
 
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
@@ -192,14 +194,13 @@
 
           useEffect(() => {
             if (!user) return;
-            // Gunakan activeAppId yang dikesan (Sama ada default canvas atau rekod-kk-murid)
             const recordsRef = collection(db, 'artifacts', activeAppId, 'public', 'data', 'records');
             const unsubscribe = onSnapshot(recordsRef, (snapshot) => {
               const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
               setRecords(data);
             }, (error) => {
               console.error("Firestore Error:", error);
-              if (error.message.includes("permissions")) {
+              if (error.message && error.message.toLowerCase().includes("permission")) {
                   showToast("Tiada kebenaran Firebase. Sila semak Firestore Security Rules anda jika host sendiri.", "error");
               }
             });
