@@ -30,22 +30,38 @@
 
         const { useState, useMemo, useEffect } = React;
 
-        // Firebase Configuration (Dari yang diberikan)
-        const firebaseConfig = {
-          apiKey: "AIzaSyCJj6xYrtb5ceqe_5Nq4ikGACVVYL4Q-sc",
-          authDomain: "rekod-kk-murid.firebaseapp.com",
-          projectId: "rekod-kk-murid",
-          storageBucket: "rekod-kk-murid.firebasestorage.app",
-          messagingSenderId: "738134533461",
-          appId: "1:738134533461:web:7dd9b41f5a5f406732bbdc",
-          measurementId: "G-YB9V1ZYSEN"
-        };
+        // --- FIREBASE CONFIGURATION (Dinamik) ---
+        let firebaseConfig;
+        let isUsingCanvasFirebase = false;
+
+        // Cuba gunakan persekitaran terbina dalam dahulu untuk mengelakkan ralat kebenaran
+        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+            try {
+                firebaseConfig = JSON.parse(__firebase_config);
+                isUsingCanvasFirebase = true;
+            } catch (e) {
+                console.error("Ralat membaca konfigurasi lalai", e);
+            }
+        }
+
+        // Jika persekitaran terbina dalam tiada (cth: dieksport/hosting sendiri), gunakan config peribadi anda
+        if (!isUsingCanvasFirebase) {
+            firebaseConfig = {
+              apiKey: "AIzaSyCJj6xYrtb5ceqe_5Nq4ikGACVVYL4Q-sc",
+              authDomain: "rekod-kk-murid.firebaseapp.com",
+              projectId: "rekod-kk-murid",
+              storageBucket: "rekod-kk-murid.firebasestorage.app",
+              messagingSenderId: "738134533461",
+              appId: "1:738134533461:web:7dd9b41f5a5f406732bbdc",
+              measurementId: "G-YB9V1ZYSEN"
+            };
+        }
 
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'rekod-kk-murid-app';
 
         // --- KOMPONEN IKON TERBINA DALAM ---
         const Icon = ({ children, className = "w-5 h-5", title }) => (
@@ -158,7 +174,7 @@
 
         function App() {
           const [activeTab, setActiveTab] = useState('form'); 
-          const [summaryView, setSummaryView] = useState('murid'); // 'murid' | 'guru'
+          const [summaryView, setSummaryView] = useState('murid'); 
           const [records, setRecords] = useState([]);
           const [user, setUser] = useState(null);
           
@@ -179,17 +195,9 @@
           useEffect(() => {
             const initAuth = async () => {
               try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                  try {
-                    // Cuba log masuk dengan token jika di persekitaran rasmi
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                  } catch (tokenError) {
-                    // Jika token tak sepadan kerana pangkalan data custom digunakan
-                    console.warn("Gagal menggunakan token rasmi, beralih ke mod awan (Anonymous)", tokenError);
-                    await signInAnonymously(auth);
-                  }
+                if (isUsingCanvasFirebase && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                  await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
-                  // Tiada token ditemui, log masuk tanpa nama
                   await signInAnonymously(auth);
                 }
               } catch (error) {
@@ -209,6 +217,9 @@
               setRecords(data);
             }, (error) => {
               console.error("Firestore Error:", error);
+              if (error.message.includes("permissions")) {
+                  showToast("Tiada kebenaran Firebase. Sila semak Firestore Security Rules anda jika host sendiri.", "error");
+              }
             });
             return () => unsubscribe();
           }, [user]);
@@ -621,7 +632,6 @@
             const data = {};
             records.forEach(r => {
                 const isProgram = r.jenisBorang === 'Program' || !r.jenisBorang;
-                // Kami mengira penglibatan guru hanya dari borang Program
                 if (isProgram && r.guruList && r.guruList.length > 0) {
                     r.guruList.forEach(g => {
                         const gName = g.nama.toUpperCase();
