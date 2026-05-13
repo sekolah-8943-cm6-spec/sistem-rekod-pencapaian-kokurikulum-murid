@@ -26,7 +26,7 @@
     <script type="text/babel">
         const { useState, useMemo, useEffect } = React;
 
-        // --- KOMPONEN IKON TERBINA DALAM (Menggantikan lucide-react) ---
+        // --- KOMPONEN IKON TERBINA DALAM ---
         const Icon = ({ children, className = "w-5 h-5", title }) => (
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
                 {title && <title>{title}</title>}
@@ -124,6 +124,7 @@
 
         function App() {
           const [activeTab, setActiveTab] = useState('form'); 
+          const [summaryView, setSummaryView] = useState('murid'); // 'murid' | 'guru'
           const [records, setRecords] = useState([]);
           
           const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
@@ -267,6 +268,11 @@
             return jantinaMurid[nama.trim().toUpperCase()] || 'Tidak Diketahui'; 
           };
 
+          const formatTarikh = (mula, akhir) => {
+            if (!akhir || mula === akhir) return mula;
+            return `${mula} hingga ${akhir}`;
+          };
+
           const initialFormState = {
             jenisBorang: 'Program',
             namaProgram: '',
@@ -286,6 +292,7 @@
           const [filterNama, setFilterNama] = useState('Semua');
           const [filterPeringkat, setFilterPeringkat] = useState('Keseluruhan');
           const [filterBidang, setFilterBidang] = useState('Semua');
+          const [filterGuru, setFilterGuru] = useState('Semua');
 
           const uniqueNames = useMemo(() => {
             const names = new Set();
@@ -518,10 +525,29 @@
             };
           }, [records, filterNama, filterPeringkat, filterBidang]);
 
-          const formatTarikh = (mula, akhir) => {
-            if (!akhir || mula === akhir) return mula;
-            return `${mula} hingga ${akhir}`;
-          };
+          const guruReportData = useMemo(() => {
+            const data = {};
+            records.forEach(r => {
+                const isProgram = r.jenisBorang === 'Program' || !r.jenisBorang;
+                // Kami mengira penglibatan guru hanya dari borang Program
+                if (isProgram && r.guruList && r.guruList.length > 0) {
+                    r.guruList.forEach(g => {
+                        const gName = g.nama.toUpperCase();
+                        if (!data[gName]) {
+                            data[gName] = { nama: gName, total: 0, programs: [] };
+                        }
+                        data[gName].total++;
+                        data[gName].programs.push({
+                            namaProgram: r.namaProgram,
+                            tarikh: formatTarikh(r.tarikhMula, r.tarikhAkhir),
+                            bidang: r.bidang,
+                            peringkat: r.peringkat
+                        });
+                    });
+                }
+            });
+            return Object.values(data).sort((a,b) => a.nama.localeCompare(b.nama));
+          }, [records]);
 
           const reportRecords = useMemo(() => {
             if (filterNama === 'Semua') return [];
@@ -664,6 +690,8 @@
               jantina: getJantina(filterNama)
             };
           }, [filterNama, senaraiKelas, dataMurid]);
+
+          const selectedGuruData = guruReportData.find(g => g.nama === filterGuru);
 
           if (isLoadingData) {
             return (
@@ -1039,183 +1067,288 @@
   const renderSummary = () => {
     return (
       <div className="space-y-6">
-        {records.length > 0 && (
-          <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-6 rounded-xl border border-amber-200 shadow-sm">
-            <div className="flex items-center gap-2 mb-6 text-amber-700 border-b border-amber-200 pb-4">
-              <Crown className="w-6 h-6" />
-              <h2 className="text-xl font-semibold">Calon Tokoh Kokurikulum</h2>
+        
+        {/* Toggle View: Murid / Guru */}
+        <div className="flex justify-center mb-2">
+            <div className="bg-white p-1.5 rounded-xl shadow-sm border border-gray-200 inline-flex flex-wrap justify-center gap-1">
+               <button onClick={() => setSummaryView('murid')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${summaryView==='murid'?'bg-blue-600 text-white shadow':'text-gray-500 hover:bg-gray-100'}`}>
+                 <div className="flex items-center gap-2"><Users className="w-4 h-4"/> Rumusan Murid</div>
+               </button>
+               <button onClick={() => setSummaryView('guru')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${summaryView==='guru'?'bg-emerald-600 text-white shadow':'text-gray-500 hover:bg-gray-100'}`}>
+                 <div className="flex items-center gap-2"><UserCheck className="w-4 h-4"/> Rumusan Guru Pengiring</div>
+               </button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-white p-4 rounded-lg shadow-sm border border-amber-100">
-                 <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500"></div> Tokoh Lelaki</h3>
-                 {tokohLelaki.length === 0 ? ( <p className="text-sm text-gray-400 italic">Tiada calon.</p> ) : (
-                    <ul className="space-y-3">
-                      {tokohLelaki.map((murid, idx) => (
-                         <li key={idx} className="flex items-center justify-between text-sm">
-                           <div className="flex flex-col">
-                               <span className="font-semibold text-gray-800">{murid.nama}</span>
-                               <span className="text-xs text-gray-500">{murid.kelas}</span>
-                           </div>
-                           <div className="flex items-center gap-2">
-                               <span className="font-bold text-amber-600 bg-amber-100 px-2 py-1 rounded-md">{murid.totalSkor} pts</span>
-                               <button 
-                                 onClick={() => { 
-                                     setFilterNama(murid.nama); 
-                                     setPrintMode('tokoh'); 
-                                     setTimeout(() => window.print(), 100); 
-                                 }} 
-                                 className="p-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition" 
-                                 title="Jana Laporan Tokoh (Semua Rekod)"
-                               >
-                                   <Printer className="w-4 h-4" />
-                               </button>
-                           </div>
-                         </li>
-                      ))}
-                    </ul>
-                 )}
-              </div>
-              <div className="bg-white p-4 rounded-lg shadow-sm border border-amber-100">
-                 <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-pink-500"></div> Tokoh Perempuan</h3>
-                 {tokohPerempuan.length === 0 ? ( <p className="text-sm text-gray-400 italic">Tiada calon.</p> ) : (
-                    <ul className="space-y-3">
-                      {tokohPerempuan.map((murid, idx) => (
-                         <li key={idx} className="flex items-center justify-between text-sm">
-                           <div className="flex flex-col">
-                               <span className="font-semibold text-gray-800">{murid.nama}</span>
-                               <span className="text-xs text-gray-500">{murid.kelas}</span>
-                           </div>
-                           <div className="flex items-center gap-2">
-                               <span className="font-bold text-amber-600 bg-amber-100 px-2 py-1 rounded-md">{murid.totalSkor} pts</span>
-                               <button 
-                                 onClick={() => { 
-                                     setFilterNama(murid.nama); 
-                                     setPrintMode('tokoh'); 
-                                     setTimeout(() => window.print(), 100); 
-                                 }} 
-                                 className="p-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition" 
-                                 title="Jana Laporan Tokoh (Semua Rekod)"
-                               >
-                                   <Printer className="w-4 h-4" />
-                               </button>
-                           </div>
-                         </li>
-                      ))}
-                    </ul>
-                 )}
-              </div>
-            </div>
-            <p className="text-xs text-gray-500 mt-4 italic">* Pemilihan berdasarkan kumulatif markah merit Peringkat (cth: Antarabangsa=60) & Pencapaian (cth: Johan=6). Jantina dirujuk secara live dari pautan Google Sheets.</p>
-          </div>
-        )}
+        </div>
 
+        {summaryView === 'murid' ? (
+        <>
+            {records.length > 0 && (
+              <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-6 rounded-xl border border-amber-200 shadow-sm">
+                <div className="flex items-center gap-2 mb-6 text-amber-700 border-b border-amber-200 pb-4">
+                  <Crown className="w-6 h-6" />
+                  <h2 className="text-xl font-semibold">Calon Tokoh Kokurikulum</h2>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-white p-4 rounded-lg shadow-sm border border-amber-100">
+                     <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500"></div> Tokoh Lelaki</h3>
+                     {tokohLelaki.length === 0 ? ( <p className="text-sm text-gray-400 italic">Tiada calon.</p> ) : (
+                        <ul className="space-y-3">
+                          {tokohLelaki.map((murid, idx) => (
+                             <li key={idx} className="flex items-center justify-between text-sm">
+                               <div className="flex flex-col">
+                                   <span className="font-semibold text-gray-800">{murid.nama}</span>
+                                   <span className="text-xs text-gray-500">{murid.kelas}</span>
+                               </div>
+                               <div className="flex items-center gap-2">
+                                   <span className="font-bold text-amber-600 bg-amber-100 px-2 py-1 rounded-md">{murid.totalSkor} pts</span>
+                                   <button 
+                                     onClick={() => { 
+                                         setFilterNama(murid.nama); 
+                                         setPrintMode('tokoh'); 
+                                         setTimeout(() => window.print(), 100); 
+                                     }} 
+                                     className="p-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition" 
+                                     title="Jana Laporan Tokoh (Semua Rekod)"
+                                   >
+                                       <Printer className="w-4 h-4" />
+                                   </button>
+                               </div>
+                             </li>
+                          ))}
+                        </ul>
+                     )}
+                  </div>
+                  <div className="bg-white p-4 rounded-lg shadow-sm border border-amber-100">
+                     <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-pink-500"></div> Tokoh Perempuan</h3>
+                     {tokohPerempuan.length === 0 ? ( <p className="text-sm text-gray-400 italic">Tiada calon.</p> ) : (
+                        <ul className="space-y-3">
+                          {tokohPerempuan.map((murid, idx) => (
+                             <li key={idx} className="flex items-center justify-between text-sm">
+                               <div className="flex flex-col">
+                                   <span className="font-semibold text-gray-800">{murid.nama}</span>
+                                   <span className="text-xs text-gray-500">{murid.kelas}</span>
+                               </div>
+                               <div className="flex items-center gap-2">
+                                   <span className="font-bold text-amber-600 bg-amber-100 px-2 py-1 rounded-md">{murid.totalSkor} pts</span>
+                                   <button 
+                                     onClick={() => { 
+                                         setFilterNama(murid.nama); 
+                                         setPrintMode('tokoh'); 
+                                         setTimeout(() => window.print(), 100); 
+                                     }} 
+                                     className="p-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition" 
+                                     title="Jana Laporan Tokoh (Semua Rekod)"
+                                   >
+                                       <Printer className="w-4 h-4" />
+                                   </button>
+                               </div>
+                             </li>
+                          ))}
+                        </ul>
+                     )}
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-4 italic">* Pemilihan berdasarkan kumulatif markah merit Peringkat (cth: Antarabangsa=60) & Pencapaian (cth: Johan=6). Jantina dirujuk secara live dari pautan Google Sheets.</p>
+              </div>
+            )}
+
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="flex items-center justify-between gap-2 mb-6 border-b pb-4">
+                <div className="flex items-center gap-2 text-blue-700">
+                    <BarChart2 className="w-6 h-6" />
+                    <h2 className="text-xl font-semibold">Rumusan Pencapaian Murid</h2>
+                </div>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 mb-6">
+                  <div className="flex items-center gap-2 mb-3 text-slate-700">
+                      <Filter className="w-4 h-4" />
+                      <span className="text-sm font-semibold">Pilihan Paparan & Laporan</span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Nama Murid</label>
+                      <select value={filterNama} onChange={e => setFilterNama(e.target.value)} className="w-full p-2 text-sm border border-gray-300 rounded-md bg-white">
+                          <option value="Semua">Semua Murid</option>
+                          {uniqueNames.map(name => <option key={name} value={name}>{name}</option>)}
+                      </select>
+                      </div>
+                      <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Peringkat</label>
+                      <select value={filterPeringkat} onChange={e => setFilterPeringkat(e.target.value)} className="w-full p-2 text-sm border border-gray-300 rounded-md bg-white">
+                          <option value="Keseluruhan">Keseluruhan (Semua Peringkat)</option>
+                          {PERINGKAT_PILIHAN.map(p => <option key={p} value={p}>{p}</option>)}
+                      </select>
+                      </div>
+                      <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Bidang</label>
+                      <select value={filterBidang} onChange={e => setFilterBidang(e.target.value)} className="w-full p-2 text-sm border border-gray-300 rounded-md bg-white">
+                          <option value="Semua">Semua Bidang</option>
+                          {BIDANG_PILIHAN.map(b => <option key={b} value={b}>{b}</option>)}
+                      </select>
+                      </div>
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-slate-200 flex justify-end">
+                    <button 
+                      onClick={() => {
+                        if (filterNama === 'Semua') {
+                          showToast('Sila pilih nama murid spesifik pada ruang Nama Murid di atas untuk menjana Laporan.', 'error');
+                        } else {
+                          setPrintMode('umum');
+                          setTimeout(() => window.print(), 100);
+                        }
+                      }}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition ${filterNama === 'Semua' ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white shadow-sm'}`}
+                    >
+                      <Printer className="w-4 h-4" /> Jana Laporan Murid (PDF)
+                    </button>
+                  </div>
+                </div>
+
+                {summaryData.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">
+                    <Award className="w-16 h-16 mx-auto mb-3 opacity-20" />
+                    <p>Tiada rekod dipaparkan berdasarkan pilihan ini.</p>
+                </div>
+                ) : (
+                <div className="flex flex-col lg:flex-row gap-8 items-start">
+                    <div className="overflow-x-auto w-full flex-1">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-gray-50 text-gray-700 uppercase text-xs border-y">
+                        <tr>
+                            <th className="px-4 py-3 border-r">Nama Murid</th>
+                            <th className="px-4 py-3 border-r">Bidang</th>
+                            <th className="px-4 py-3 border-r">Peringkat</th>
+                            <th className="px-3 py-3 text-center border-r text-amber-600">Johan</th>
+                            <th className="px-3 py-3 text-center border-r text-slate-500">Naib Johan</th>
+                            <th className="px-3 py-3 text-center border-r text-orange-700">Ke-3</th>
+                            <th className="px-3 py-3 text-center border-r">Ke-4</th>
+                            <th className="px-3 py-3 text-center border-r">Ke-5</th>
+                            <th className="px-3 py-3 text-center border-r">Penyertaan</th>
+                            <th className="px-3 py-3 text-center">Anugerah Khas</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {summaryData.map((row, idx) => (
+                            <tr key={idx} className="border-b hover:bg-gray-50">
+                            <td className="px-4 py-3 font-medium text-gray-900 border-r">{row.nama}</td>
+                            <td className="px-4 py-3 border-r">
+                                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">{row.bidang}</span>
+                            </td>
+                            <td className="px-4 py-3 border-r">
+                                <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs font-medium">
+                                {row.peringkat}
+                                </span>
+                            </td>
+                            <td className="px-3 py-3 text-center border-r font-semibold">{row.johan || '-'}</td>
+                            <td className="px-3 py-3 text-center border-r font-semibold">{row.naibJohan || '-'}</td>
+                            <td className="px-3 py-3 text-center border-r font-semibold">{row.ke3 || '-'}</td>
+                            <td className="px-3 py-3 text-center border-r">{row.ke4 || '-'}</td>
+                            <td className="px-3 py-3 text-center border-r">{row.ke5 || '-'}</td>
+                            <td className="px-3 py-3 text-center border-r">{row.penyertaan || '-'}</td>
+                            <td className="px-3 py-3 text-center font-bold text-indigo-600">{row.anugerahKhas > 0 ? row.anugerahKhas : '-'}</td>
+                            </tr>
+                        ))}
+                        </tbody>
+                    </table>
+                    </div>
+
+                    <div className="w-full lg:w-[350px] shrink-0">
+                    <SpiderChart data={spiderData} />
+                    </div>
+                </div>
+                )}
+            </div>
+        </>
+        ) : (
+        /* PAPARAN RUMUSAN GURU PENGIRING */
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="flex items-center justify-between gap-2 mb-6 border-b pb-4">
-            <div className="flex items-center gap-2 text-emerald-700">
-                <BarChart2 className="w-6 h-6" />
-                <h2 className="text-xl font-semibold">Rumusan Pencapaian Murid</h2>
-            </div>
+                <div className="flex items-center gap-2 text-emerald-700">
+                    <UserCheck className="w-6 h-6" />
+                    <h2 className="text-xl font-semibold">Rumusan Penglibatan Guru Pengiring / Penasihat</h2>
+                </div>
             </div>
 
-            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 mb-6">
-              <div className="flex items-center gap-2 mb-3 text-slate-700">
-                  <Filter className="w-4 h-4" />
-                  <span className="text-sm font-semibold">Pilihan Paparan & Laporan</span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Nama Murid</label>
-                  <select value={filterNama} onChange={e => setFilterNama(e.target.value)} className="w-full p-2 text-sm border border-gray-300 rounded-md bg-white">
-                      <option value="Semua">Semua Murid</option>
-                      {uniqueNames.map(name => <option key={name} value={name}>{name}</option>)}
-                  </select>
-                  </div>
-                  <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Peringkat</label>
-                  <select value={filterPeringkat} onChange={e => setFilterPeringkat(e.target.value)} className="w-full p-2 text-sm border border-gray-300 rounded-md bg-white">
-                      <option value="Keseluruhan">Keseluruhan (Semua Peringkat)</option>
-                      {PERINGKAT_PILIHAN.map(p => <option key={p} value={p}>{p}</option>)}
-                  </select>
-                  </div>
-                  <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Bidang</label>
-                  <select value={filterBidang} onChange={e => setFilterBidang(e.target.value)} className="w-full p-2 text-sm border border-gray-300 rounded-md bg-white">
-                      <option value="Semua">Semua Bidang</option>
-                      {BIDANG_PILIHAN.map(b => <option key={b} value={b}>{b}</option>)}
-                  </select>
-                  </div>
-              </div>
-              <div className="mt-4 pt-4 border-t border-slate-200 flex justify-end">
+            <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-100 mb-6 flex flex-col md:flex-row gap-4 items-end">
+                <div className="flex-1 w-full">
+                    <label className="block text-xs font-medium text-emerald-800 mb-1">Pilih Nama Guru untuk Melihat / Menjana Laporan</label>
+                    <select value={filterGuru} onChange={e => setFilterGuru(e.target.value)} className="w-full p-2 text-sm border border-emerald-300 rounded-md bg-white">
+                        <option value="Semua">Tunjuk Semua Guru</option>
+                        {guruReportData.map(g => <option key={g.nama} value={g.nama}>{g.nama}</option>)}
+                    </select>
+                </div>
                 <button 
                   onClick={() => {
-                    if (filterNama === 'Semua') {
-                      showToast('Sila pilih nama murid spesifik pada ruang Nama Murid di atas untuk menjana Laporan.', 'error');
+                    if (filterGuru === 'Semua') {
+                      showToast('Sila pilih nama guru yang spesifik untuk menjana Laporan PDF.', 'error');
                     } else {
-                      setPrintMode('umum');
+                      setPrintMode('guru');
                       setTimeout(() => window.print(), 100);
                     }
                   }}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition ${filterNama === 'Semua' ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white shadow-sm'}`}
+                  className={`flex items-center justify-center gap-2 px-6 py-2 rounded-md text-sm font-bold transition w-full md:w-auto shrink-0 ${filterGuru === 'Semua' ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'}`}
                 >
-                  <Printer className="w-4 h-4" /> Jana Laporan (PDF)
+                  <Printer className="w-4 h-4" /> Jana Laporan Guru (PDF)
                 </button>
-              </div>
             </div>
 
-            {summaryData.length === 0 ? (
-            <div className="text-center py-12 text-gray-400">
-                <Award className="w-16 h-16 mx-auto mb-3 opacity-20" />
-                <p>Tiada rekod dipaparkan berdasarkan pilihan ini.</p>
-            </div>
+            {guruReportData.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">
+                    <UserCheck className="w-16 h-16 mx-auto mb-3 opacity-20" />
+                    <p>Tiada rekod guru pengiring didapati setakat ini.</p>
+                </div>
+            ) : filterGuru === 'Semua' ? (
+                <div className="overflow-x-auto w-full">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-gray-50 text-gray-700 uppercase text-xs border-y">
+                            <tr>
+                                <th className="px-4 py-3 border-r w-16 text-center">Bil</th>
+                                <th className="px-4 py-3 border-r">Nama Guru Pengiring / Penasihat</th>
+                                <th className="px-4 py-3 text-center">Jumlah Program Dihadiri</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {guruReportData.map((g, idx) => (
+                                <tr key={idx} className="border-b hover:bg-gray-50">
+                                    <td className="px-4 py-3 text-center border-r font-medium text-gray-500">{idx + 1}</td>
+                                    <td className="px-4 py-3 font-semibold text-gray-900 border-r">{g.nama}</td>
+                                    <td className="px-4 py-3 text-center">
+                                        <span className="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs font-bold">{g.total} Program</span>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             ) : (
-            <div className="flex flex-col lg:flex-row gap-8 items-start">
-                <div className="overflow-x-auto w-full flex-1">
-                <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-50 text-gray-700 uppercase text-xs border-y">
-                    <tr>
-                        <th className="px-4 py-3 border-r">Nama Murid</th>
-                        <th className="px-4 py-3 border-r">Bidang</th>
-                        <th className="px-4 py-3 border-r">Peringkat</th>
-                        <th className="px-3 py-3 text-center border-r text-amber-600">Johan</th>
-                        <th className="px-3 py-3 text-center border-r text-slate-500">Naib Johan</th>
-                        <th className="px-3 py-3 text-center border-r text-orange-700">Ke-3</th>
-                        <th className="px-3 py-3 text-center border-r">Ke-4</th>
-                        <th className="px-3 py-3 text-center border-r">Ke-5</th>
-                        <th className="px-3 py-3 text-center border-r">Penyertaan</th>
-                        <th className="px-3 py-3 text-center">Anugerah Khas</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    {summaryData.map((row, idx) => (
-                        <tr key={idx} className="border-b hover:bg-gray-50">
-                        <td className="px-4 py-3 font-medium text-gray-900 border-r">{row.nama}</td>
-                        <td className="px-4 py-3 border-r">
-                            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">{row.bidang}</span>
-                        </td>
-                        <td className="px-4 py-3 border-r">
-                            <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs font-medium">
-                            {row.peringkat}
-                            </span>
-                        </td>
-                        <td className="px-3 py-3 text-center border-r font-semibold">{row.johan || '-'}</td>
-                        <td className="px-3 py-3 text-center border-r font-semibold">{row.naibJohan || '-'}</td>
-                        <td className="px-3 py-3 text-center border-r font-semibold">{row.ke3 || '-'}</td>
-                        <td className="px-3 py-3 text-center border-r">{row.ke4 || '-'}</td>
-                        <td className="px-3 py-3 text-center border-r">{row.ke5 || '-'}</td>
-                        <td className="px-3 py-3 text-center border-r">{row.penyertaan || '-'}</td>
-                        <td className="px-3 py-3 text-center font-bold text-indigo-600">{row.anugerahKhas > 0 ? row.anugerahKhas : '-'}</td>
-                        </tr>
-                    ))}
-                    </tbody>
-                </table>
+                <div className="overflow-x-auto w-full">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-emerald-600 text-white uppercase text-xs border-y">
+                            <tr>
+                                <th className="px-4 py-3 border-r border-emerald-500 w-16 text-center">Bil</th>
+                                <th className="px-4 py-3 border-r border-emerald-500">Bidang</th>
+                                <th className="px-4 py-3 border-r border-emerald-500">Nama Program / Kelab</th>
+                                <th className="px-4 py-3 border-r border-emerald-500 text-center">Tarikh / Sesi</th>
+                                <th className="px-4 py-3 text-center border-emerald-500">Peringkat</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {selectedGuruData && selectedGuruData.programs.map((p, idx) => (
+                                <tr key={idx} className="border-b hover:bg-emerald-50">
+                                    <td className="px-4 py-3 text-center border-r border-gray-200">{idx + 1}</td>
+                                    <td className="px-4 py-3 border-r border-gray-200 font-medium text-emerald-700">{p.bidang}</td>
+                                    <td className="px-4 py-3 border-r border-gray-200 font-semibold text-gray-900">{p.namaProgram}</td>
+                                    <td className="px-4 py-3 border-r border-gray-200 text-center">{p.tarikh}</td>
+                                    <td className="px-4 py-3 text-center text-gray-600">{p.peringkat}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
-
-                <div className="w-full lg:w-[350px] shrink-0">
-                <SpiderChart data={spiderData} />
-                </div>
-            </div>
             )}
         </div>
+        )}
       </div>
     );
   };
@@ -1250,7 +1383,68 @@
       </div>
 
       <div className="hidden print:block w-full bg-white text-black p-4 font-sans print-1-page">
-         {printMode === 'tokoh' ? (
+         {printMode === 'guru' && selectedGuruData ? (
+             <div className="h-full flex flex-col">
+                 <div className="flex flex-col items-center border-b-[3px] border-black pb-2 mb-3">
+                     <div className="w-20 h-20 flex items-center justify-center overflow-hidden mb-1">
+                         <img src="logo sekolah.jpg" alt="Logo Sekolah" className="w-full h-full object-contain" onError={(e) => { e.target.onerror = null; e.target.src = 'latest 6.5.jpg'; }} />
+                     </div>
+                     <h1 className="text-xl font-extrabold uppercase text-center">Sekolah Kebangsaan Pendidikan Khas Miri</h1>
+                     <p className="text-[11px] font-bold mt-1 bg-gray-800 text-white inline-block px-3 py-0.5 rounded">LAPORAN PENGLIBATAN GURU PENGIRING / PENASIHAT</p>
+                 </div>
+
+                 <div className="mb-4 border-l-4 border-black pl-3">
+                     <table className="text-xs">
+                        <tbody>
+                           <tr><td className="w-32 font-bold py-0.5">Nama Guru</td><td className="w-3">:</td><td className="py-0.5 font-semibold text-sm uppercase">{selectedGuruData.nama}</td></tr>
+                           <tr><td className="w-32 font-bold py-0.5">Jumlah Penglibatan</td><td className="w-3">:</td><td className="py-0.5">{selectedGuruData.total} Program / Kelab</td></tr>
+                        </tbody>
+                     </table>
+                 </div>
+
+                 <div className="mb-4 flex-1">
+                     <h3 className="font-bold text-xs mb-1.5 bg-gray-200 p-1.5">Senarai Penglibatan (Program / Pertandingan / Jawatan)</h3>
+                     <table className="w-full text-[10px] border-collapse border border-black mt-1">
+                        <thead>
+                           <tr className="bg-gray-100">
+                              <th className="border border-black p-1 text-center w-8">Bil</th>
+                              <th className="border border-black p-1 text-center">Bidang</th>
+                              <th className="border border-black p-1 text-left">Nama Program / Kelab</th>
+                              <th className="border border-black p-1 text-center">Tarikh / Sesi</th>
+                              <th className="border border-black p-1 text-center">Peringkat</th>
+                           </tr>
+                        </thead>
+                        <tbody>
+                           {selectedGuruData.programs.length === 0 ? (
+                              <tr><td colSpan="5" className="text-center p-3 border border-black font-medium italic text-gray-500">Tiada rekod penglibatan guru.</td></tr>
+                           ) : (
+                              selectedGuruData.programs.map((p, i) => (
+                                 <tr key={i}>
+                                    <td className="border border-black p-1 text-center">{i+1}</td>
+                                    <td className="border border-black p-1 text-center font-bold">{p.bidang}</td>
+                                    <td className="border border-black p-1 font-medium">{p.namaProgram}</td>
+                                    <td className="border border-black p-1 text-center whitespace-nowrap">{p.tarikh}</td>
+                                    <td className="border border-black p-1 text-center font-semibold">{p.peringkat}</td>
+                                 </tr>
+                              ))
+                           )}
+                        </tbody>
+                     </table>
+                 </div>
+                 
+                 <div className="mt-4 flex justify-end shrink-0">
+                     <div className="text-center w-56">
+                         <p className="mb-10 text-[11px] text-left">Disahkan oleh,</p>
+                         <p className="border-b border-black w-full"></p>
+                         <p className="mt-1 font-bold text-[11px]">( AZIZ BIN TAHIR )</p>
+                         <p className="text-[10px] mt-0.5 font-semibold uppercase">Guru Besar</p>
+                         <p className="text-[10px] font-semibold uppercase">Sekolah Kebangsaan Pendidikan Khas Miri</p>
+                         <p className="text-[9px] mt-1 text-gray-500">Tarikh Cetakan: {new Date().toLocaleDateString('ms-MY')}</p>
+                     </div>
+                 </div>
+             </div>
+
+         ) : printMode === 'tokoh' ? (
              <div className="h-full flex flex-col">
                  <div className="flex flex-col items-center border-b-[3px] border-black pb-2 mb-3">
                      <div className="w-20 h-20 flex items-center justify-center overflow-hidden mb-1">
