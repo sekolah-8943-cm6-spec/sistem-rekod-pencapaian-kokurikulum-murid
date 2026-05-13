@@ -30,38 +30,28 @@
 
         const { useState, useMemo, useEffect } = React;
 
-        // --- FIREBASE CONFIGURATION (Dinamik) ---
-        let firebaseConfig;
-        let isUsingCanvasFirebase = false;
+        // --- FIREBASE CONFIGURATION (Dwi-Persekitaran) ---
+        // Konfigurasi peribadi anda:
+        const myFirebaseConfig = {
+          apiKey: "AIzaSyCJj6xYrtb5ceqe_5Nq4ikGACVVYL4Q-sc",
+          authDomain: "rekod-kk-murid.firebaseapp.com",
+          projectId: "rekod-kk-murid",
+          storageBucket: "rekod-kk-murid.firebasestorage.app",
+          messagingSenderId: "738134533461",
+          appId: "1:738134533461:web:7dd9b41f5a5f406732bbdc",
+          measurementId: "G-YB9V1ZYSEN"
+        };
 
-        // Cuba gunakan persekitaran terbina dalam dahulu untuk mengelakkan ralat kebenaran
-        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-            try {
-                firebaseConfig = JSON.parse(__firebase_config);
-                isUsingCanvasFirebase = true;
-            } catch (e) {
-                console.error("Ralat membaca konfigurasi lalai", e);
-            }
-        }
-
-        // Jika persekitaran terbina dalam tiada (cth: dieksport/hosting sendiri), gunakan config peribadi anda
-        if (!isUsingCanvasFirebase) {
-            firebaseConfig = {
-              apiKey: "AIzaSyCJj6xYrtb5ceqe_5Nq4ikGACVVYL4Q-sc",
-              authDomain: "rekod-kk-murid.firebaseapp.com",
-              projectId: "rekod-kk-murid",
-              storageBucket: "rekod-kk-murid.firebasestorage.app",
-              messagingSenderId: "738134533461",
-              appId: "1:738134533461:web:7dd9b41f5a5f406732bbdc",
-              measurementId: "G-YB9V1ZYSEN"
-            };
-        }
+        // Pengesanan persekitaran (Preview vs Hosting Sendiri)
+        // Ini memastikan tiada ralat "permission" semasa mencuba di paparan preview ini.
+        const isCanvasEnv = typeof __firebase_config !== 'undefined' && __firebase_config;
+        const firebaseConfig = isCanvasEnv ? JSON.parse(__firebase_config) : myFirebaseConfig;
+        const activeAppId = isCanvasEnv && typeof __app_id !== 'undefined' ? __app_id : "rekod-kk-murid-app";
 
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'rekod-kk-murid-app';
 
         // --- KOMPONEN IKON TERBINA DALAM ---
         const Icon = ({ children, className = "w-5 h-5", title }) => (
@@ -97,19 +87,6 @@
         const PENCAPAIAN_PASUKAN_PILIHAN = ['Tiada', 'Johan', 'Naib Johan', 'Ke-3', 'Penyertaan'];
         const PERINGKAT_ANUGERAH_PILIHAN = ['Tiada', 'Sekolah', 'Daerah', 'Bahagian', 'Negeri', 'Kebangsaan', 'Antarabangsa'];
         const JAWATAN_PILIHAN = ['Tiada', 'Pengerusi / Ketua', 'Naib Pengerusi / Penolong', 'Setiausaha', 'Bendahari', 'Ahli Jawatankuasa (AJK)', 'Ahli Aktif', 'Ketua Pengawas', 'Penolong Ketua Pengawas', 'Pengawas', 'Pengawas Pusat Sumber', 'Pembimbing Rakan Sebaya'];
-
-        // Senarai Guru
-        const SENARAI_GURU = [
-          "AIDA MASTURINA BINTI HAMKA", "AIFA NUR BESTARI BINTI RADUAN", "AZIZ BIN TAHIR",
-          "BRYAN ANAK CONSTANT", "EIFILISIA AMBER ANAK MERVIN", "FAZRI BIN BAKERI",
-          "HAIROL BIN ISMAIL", "HILWA HAYATI BINTI MOHAMAD AJALAN", "JACQUELINE TIONG HOE DING",
-          "JERIAH ANAK SIMON", "JIMMY ANAK PETER", "KHAIRI BIN SAHARI",
-          "LING MEE CHOO", "MARY JANE AMOI UMPANG ANAK DANIEL", "MOHAMAD ABIDIN BIN SIPEK",
-          "MOHD RAFEEQ BIN SULAIMAN", "MUHAMMAD ZULHUSAINI BIN ABDUL WAHAB", "NUR AZLIN BINTI NORIZAN",
-          "NUR HIDAYU BINTI YUSOP", "NURUL HUDA BTE MOHD IHWAN", "SABARIAH BINTI SOLHI",
-          "SALIHIN BIN AHMAD", "SYAEEZA LIANA BINTI RAMLI", "TENG RU YUN",
-          "TING HUA EE", "TING YU YONG", "WONG PICK KING", "ZEPRINA ANAK BENIK"
-        ].sort();
 
         // Sistem Markah/Skor Hierarki Carta Spider & Penentuan Tokoh
         const SKOR_PERINGKAT = { 'Antarabangsa': 60, 'Kebangsaan': 50, 'Negeri': 40, 'Bahagian': 30, 'Daerah': 20, 'Sekolah': 10 };
@@ -195,8 +172,12 @@
           useEffect(() => {
             const initAuth = async () => {
               try {
-                if (isUsingCanvasFirebase && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                  await signInWithCustomToken(auth, __initial_auth_token);
+                if (isCanvasEnv && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                  try {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                  } catch (e) {
+                    await signInAnonymously(auth);
+                  }
                 } else {
                   await signInAnonymously(auth);
                 }
@@ -211,7 +192,8 @@
 
           useEffect(() => {
             if (!user) return;
-            const recordsRef = collection(db, 'artifacts', appId, 'public', 'data', 'records');
+            // Gunakan activeAppId yang dikesan (Sama ada default canvas atau rekod-kk-murid)
+            const recordsRef = collection(db, 'artifacts', activeAppId, 'public', 'data', 'records');
             const unsubscribe = onSnapshot(recordsRef, (snapshot) => {
               const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
               setRecords(data);
@@ -471,7 +453,7 @@
           const handleDelete = async (id) => {
             if (!user) return;
             try {
-              const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'records', id);
+              const docRef = doc(db, 'artifacts', activeAppId, 'public', 'data', 'records', id);
               await deleteDoc(docRef);
               if (editingRecordId === id) cancelEdit();
               showToast('Rekod telah berjaya dipadam.', 'success');
@@ -526,7 +508,7 @@
                return;
             }
 
-            // Bersihkan data daripada nilai 'undefined' (Firestore akan menolak data undefined)
+            // Bersihkan data
             const recordData = JSON.parse(JSON.stringify({ 
                 ...formData, 
                 guruList: validGuru, 
@@ -534,11 +516,11 @@
                 timestamp: Date.now()
             }));
             
-            const recordsRef = collection(db, 'artifacts', appId, 'public', 'data', 'records');
+            const recordsRef = collection(db, 'artifacts', activeAppId, 'public', 'data', 'records');
 
             try {
               if (editingRecordId) {
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'records', editingRecordId);
+                const docRef = doc(db, 'artifacts', activeAppId, 'public', 'data', 'records', editingRecordId);
                 await updateDoc(docRef, recordData);
                 setEditingRecordId(null);
                 showToast('Data berjaya dikemaskini!', 'success');
