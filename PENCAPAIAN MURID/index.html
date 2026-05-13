@@ -123,10 +123,10 @@
           const pts = `100,${100 - SukanR} ${100 + KoakademikR},100 100,${100 + DigitalR} ${100 - UnitR},100`;
 
           return (
-            <div className="w-full max-w-[350px] print:max-w-[180px] mx-auto bg-white p-4 print:p-0 rounded-xl border border-gray-100 shadow-sm print:border-none print:shadow-none flex flex-col items-center">
-              <div className="flex items-center gap-2 mb-2 text-indigo-700 w-full border-b pb-2 print:border-black print:pb-1 print:mb-1 print:justify-center">
+            <div className="w-full max-w-[350px] print:max-w-[150px] mx-auto bg-white p-4 print:p-0 rounded-xl border border-gray-100 shadow-sm print:border-none print:shadow-none flex flex-col items-center">
+              <div className="flex items-center gap-2 mb-2 text-indigo-700 w-full border-b pb-2 print:border-black print:pb-0.5 print:mb-0.5 print:justify-center">
                 <Activity className="w-5 h-5 print:hidden" />
-                <h3 className="font-semibold text-sm print:text-[10px] print:text-black">Visualisasi Markah</h3>
+                <h3 className="font-semibold text-sm print:text-[9px] print:text-black">Visualisasi Markah</h3>
               </div>
               <svg viewBox="-30 -30 260 260" className="w-full h-auto overflow-visible mt-2 print:mt-1">
                 {[20, 40, 60, 80].map(r => (
@@ -142,10 +142,10 @@
                 <circle cx="100" cy={100 + DigitalR} r="3" fill="#4338ca" className="print:fill-black" />
                 <circle cx={100 - UnitR} cy="100" r="3" fill="#4338ca" className="print:fill-black" />
 
-                <text x="100" y="5" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black print:text-[10px]">Sukan ({data['Sukan']})</text>
-                <text x="210" y="104" textAnchor="start" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black print:text-[10px]">Ko-akademik ({data['Ko-akademik']})</text>
-                <text x="100" y="200" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black print:text-[10px]">Digital ({data['Digital']})</text>
-                <text x="-10" y="104" textAnchor="end" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black print:text-[10px]">Beruniform ({data['Unit Beruniform']})</text>
+                <text x="100" y="5" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black print:text-[8px]">Sukan ({data['Sukan']})</text>
+                <text x="210" y="104" textAnchor="start" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black print:text-[8px]">Ko-akademik ({data['Ko-akademik']})</text>
+                <text x="100" y="200" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black print:text-[8px]">Digital ({data['Digital']})</text>
+                <text x="-10" y="104" textAnchor="end" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black print:text-[8px]">Beruniform ({data['Unit Beruniform']})</text>
               </svg>
             </div>
           );
@@ -681,11 +681,14 @@
             return Object.values(data).sort((a,b) => a.nama.localeCompare(b.nama));
           }, [records]);
 
-          const reportRecords = useMemo(() => {
-            if (filterNama === 'Semua') return [];
+          // --- LOGIK BAHARU UNTUK CETAKAN LAPORAN UMUM / INDIVIDU ---
+          const individualReportData = useMemo(() => {
+            if (filterNama === 'Semua') return { program: [], jawatan: [], anugerah: [] };
             
-            const bestRecords = {};
-            BIDANG_PILIHAN.forEach(b => bestRecords[b] = null);
+            const bestPrograms = {};
+            BIDANG_PILIHAN.forEach(b => bestPrograms[b] = null);
+            const jawatanList = [];
+            const anugerahList = [];
 
             records.forEach(r => {
                 const muridData = r.muridList.find(m => m.nama === filterNama);
@@ -693,12 +696,6 @@
                     const isProgram = r.jenisBorang === 'Program' || !r.jenisBorang;
                     const isAnugerah = r.jenisBorang === 'Anugerah';
                     const isJawatan = r.jenisBorang === 'Jawatan';
-
-                    let pencapaianStr = [];
-                    let currentScore = 0;
-                    let displayProgramName = '';
-                    let displayKategori = '';
-                    let displayPeringkat = '';
 
                     if (isProgram) {
                         const isIndividuAllowed = ['Individu', 'Individu dan Berpasukan'].includes(r.kategori);
@@ -708,58 +705,63 @@
                         let valPskn = isPasukanAllowed ? (SKOR_PENCAPAIAN[muridData.pencapaianPasukan] || 0) : 0;
                         let maxPencapaianVal = Math.max(valIndv, valPskn);
                         
-                        currentScore = (SKOR_PERINGKAT[r.peringkat] || 0) + maxPencapaianVal;
+                        let currentScore = (SKOR_PERINGKAT[r.peringkat] || 0) + maxPencapaianVal;
                         
+                        let pencapaianStr = [];
                         if (isIndividuAllowed && muridData.pencapaianIndividu !== 'Tiada') pencapaianStr.push(`Indv: ${muridData.pencapaianIndividu}`);
                         if (isPasukanAllowed && muridData.pencapaianPasukan !== 'Tiada') pencapaianStr.push(`Pskn: ${muridData.pencapaianPasukan}`);
                         
-                        displayProgramName = r.namaProgram;
-                        displayKategori = r.kategori;
-                        displayPeringkat = r.peringkat;
-                    } else if (isAnugerah) {
-                        currentScore = (SKOR_PERINGKAT[r.peringkatAnugerah] || 0);
-                        pencapaianStr.push(`Penerima Anugerah`);
-                        displayProgramName = r.namaAnugerah;
-                        displayKategori = 'Anugerah Khas';
-                        displayPeringkat = r.peringkatAnugerah;
+                        const recData = {
+                            bidang: r.bidang,
+                            namaProgram: r.namaProgram,
+                            kategori: r.kategori,
+                            peringkat: r.peringkat,
+                            tarikhPaparan: formatTarikh(r.tarikhMula, r.tarikhAkhir),
+                            pencapaianSebenar: pencapaianStr.length > 0 ? pencapaianStr.join(' | ') : 'Penyertaan / Tiada',
+                            score: currentScore
+                        };
+
+                        if (!bestPrograms[r.bidang] || currentScore > bestPrograms[r.bidang].score) {
+                            bestPrograms[r.bidang] = recData;
+                        }
                     } else if (isJawatan) {
-                        currentScore = (SKOR_PERINGKAT[r.peringkat] || 0) + (SKOR_JAWATAN[muridData.jawatan] || 0);
-                        pencapaianStr.push(`Jawatan: ${muridData.jawatan}`);
-                        displayProgramName = r.namaProgram;
-                        displayKategori = 'Jawatan Kelab/Sukan';
-                        displayPeringkat = r.peringkat;
-                    }
-                    
-                    const recData = {
-                        ...r,
-                        namaProgram: displayProgramName,
-                        kategori: displayKategori,
-                        peringkat: displayPeringkat,
-                        tarikhPaparan: formatTarikh(r.tarikhMula, r.tarikhAkhir),
-                        pencapaianSebenar: pencapaianStr.length > 0 ? pencapaianStr.join(' | ') : 'Penyertaan / Tiada',
-                        score: currentScore
-                    };
-
-                    if (!bestRecords[r.bidang] || currentScore > bestRecords[r.bidang].score) {
-                        bestRecords[r.bidang] = recData;
+                        jawatanList.push({
+                            bidang: r.bidang,
+                            namaProgram: r.namaProgram,
+                            jawatan: muridData.jawatan,
+                            peringkat: r.peringkat,
+                            tarikhPaparan: formatTarikh(r.tarikhMula, r.tarikhAkhir),
+                            score: (SKOR_PERINGKAT[r.peringkat] || 0) + (SKOR_JAWATAN[muridData.jawatan] || 0)
+                        });
+                    } else if (isAnugerah) {
+                        anugerahList.push({
+                            bidang: r.bidang,
+                            namaAnugerah: r.namaAnugerah,
+                            peringkat: r.peringkatAnugerah,
+                            tarikhPaparan: formatTarikh(r.tarikhMula, r.tarikhAkhir),
+                            score: SKOR_PERINGKAT[r.peringkatAnugerah] || 0
+                        });
                     }
                 }
             });
 
-            return BIDANG_PILIHAN.map(bidang => {
-                if (bestRecords[bidang]) {
-                    return bestRecords[bidang];
-                } else {
-                    return {
-                        bidang: bidang,
-                        namaProgram: 'Tiada',
-                        tarikhPaparan: '-',
-                        kategori: '-',
-                        peringkat: '-',
-                        pencapaianSebenar: '-'
-                    };
-                }
+            const finalPrograms = BIDANG_PILIHAN.map(bidang => {
+                if (bestPrograms[bidang]) return bestPrograms[bidang];
+                return {
+                    bidang: bidang,
+                    namaProgram: 'Tiada',
+                    tarikhPaparan: '-',
+                    kategori: '-',
+                    peringkat: '-',
+                    pencapaianSebenar: '-'
+                };
             });
+
+            return {
+                program: finalPrograms,
+                jawatan: jawatanList.sort((a,b) => b.score - a.score),
+                anugerah: anugerahList.sort((a,b) => b.score - a.score)
+            };
           }, [records, filterNama]);
 
           const allStudentRecords = useMemo(() => {
@@ -1694,61 +1696,112 @@
                      </table>
                  </div>
 
-                 <div className="mb-4 flex-1">
-                     <h3 className="font-bold text-xs mb-1.5 bg-gray-200 p-1.5">A. Senarai Penglibatan & Pencapaian Pertandingan (Tertinggi Setiap Bidang)</h3>
-                     <table className="w-full text-[10px] border-collapse border border-black mt-1">
-                        <thead>
-                           <tr className="bg-gray-100">
-                              <th className="border border-black p-1 text-center w-8">Bil</th>
-                              <th className="border border-black p-1 text-center">Bidang</th>
-                              <th className="border border-black p-1 text-left">Nama Program / Jawatan</th>
-                              <th className="border border-black p-1 text-center">Tarikh / Sesi</th>
-                              <th className="border border-black p-1 text-center">Kategori</th>
-                              <th className="border border-black p-1 text-center">Peringkat</th>
-                              <th className="border border-black p-1 text-center">Pencapaian</th>
-                           </tr>
-                        </thead>
-                        <tbody>
-                           {reportRecords.map((r, i) => (
-                              <tr key={i}>
-                                 <td className="border border-black p-1 text-center">{i+1}</td>
-                                 <td className="border border-black p-1 text-center font-bold">{r.bidang}</td>
-                                 <td className="border border-black p-1 font-medium">{r.namaProgram}</td>
-                                 <td className="border border-black p-1 text-center whitespace-nowrap">{r.tarikhPaparan}</td>
-                                 <td className="border border-black p-1 text-center">{r.kategori}</td>
-                                 <td className="border border-black p-1 text-center font-semibold">{r.peringkat}</td>
-                                 <td className="border border-black p-1 text-center font-bold">{r.pencapaianSebenar}</td>
-                              </tr>
-                           ))}
-                        </tbody>
-                     </table>
+                 <div className="mb-2 flex-1 flex flex-col gap-1.5">
+                     <div>
+                         <h3 className="font-bold text-[10px] mb-0.5 bg-gray-200 p-1 border-l-2 border-black uppercase">A. Pencapaian Pertandingan (Tertinggi Setiap Bidang)</h3>
+                         <table className="w-full text-[9px] border-collapse border border-black">
+                            <thead>
+                               <tr className="bg-gray-100">
+                                  <th className="border border-black p-0.5 text-center w-6">Bil</th>
+                                  <th className="border border-black p-0.5 text-center">Bidang</th>
+                                  <th className="border border-black p-0.5 text-left">Nama Program</th>
+                                  <th className="border border-black p-0.5 text-center">Tarikh / Sesi</th>
+                                  <th className="border border-black p-0.5 text-center">Kategori</th>
+                                  <th className="border border-black p-0.5 text-center">Peringkat</th>
+                                  <th className="border border-black p-0.5 text-center">Pencapaian</th>
+                               </tr>
+                            </thead>
+                            <tbody>
+                               {individualReportData.program.map((r, i) => (
+                                  <tr key={i}>
+                                     <td className="border border-black p-0.5 text-center">{i+1}</td>
+                                     <td className="border border-black p-0.5 text-center font-bold">{r.bidang}</td>
+                                     <td className="border border-black p-0.5 font-medium">{r.namaProgram}</td>
+                                     <td className="border border-black p-0.5 text-center whitespace-nowrap">{r.tarikhPaparan}</td>
+                                     <td className="border border-black p-0.5 text-center">{r.kategori}</td>
+                                     <td className="border border-black p-0.5 text-center font-semibold">{r.peringkat}</td>
+                                     <td className="border border-black p-0.5 text-center font-bold">{r.pencapaianSebenar}</td>
+                                  </tr>
+                               ))}
+                            </tbody>
+                         </table>
+                     </div>
+
+                     <div>
+                         <h3 className="font-bold text-[10px] mb-0.5 bg-gray-200 p-1 border-l-2 border-black uppercase">B. Jawatan Disandang</h3>
+                         <table className="w-full text-[9px] border-collapse border border-black">
+                            <thead>
+                               <tr className="bg-gray-100">
+                                  <th className="border border-black p-0.5 text-center w-6">Bil</th>
+                                  <th className="border border-black p-0.5 text-center">Bidang</th>
+                                  <th className="border border-black p-0.5 text-left">Kelab / Sukan / Unit Beruniform</th>
+                                  <th className="border border-black p-0.5 text-center">Jawatan</th>
+                                  <th className="border border-black p-0.5 text-center">Peringkat</th>
+                                  <th className="border border-black p-0.5 text-center">Tarikh Lantikan</th>
+                               </tr>
+                            </thead>
+                            <tbody>
+                               {individualReportData.jawatan.length === 0 ? (
+                                  <tr><td colSpan="6" className="text-center p-1 border border-black font-medium italic text-gray-500">Tiada rekod jawatan disandang.</td></tr>
+                               ) : individualReportData.jawatan.map((r, i) => (
+                                  <tr key={i}>
+                                     <td className="border border-black p-0.5 text-center">{i+1}</td>
+                                     <td className="border border-black p-0.5 text-center font-bold">{r.bidang}</td>
+                                     <td className="border border-black p-0.5 font-medium">{r.namaProgram}</td>
+                                     <td className="border border-black p-0.5 text-center font-bold text-emerald-700">{r.jawatan}</td>
+                                     <td className="border border-black p-0.5 text-center font-semibold">{r.peringkat}</td>
+                                     <td className="border border-black p-0.5 text-center whitespace-nowrap">{r.tarikhPaparan}</td>
+                                  </tr>
+                               ))}
+                            </tbody>
+                         </table>
+                     </div>
+
+                     <div>
+                         <h3 className="font-bold text-[10px] mb-0.5 bg-gray-200 p-1 border-l-2 border-black uppercase">C. Anugerah Khas</h3>
+                         <table className="w-full text-[9px] border-collapse border border-black">
+                            <thead>
+                               <tr className="bg-gray-100">
+                                  <th className="border border-black p-0.5 text-center w-6">Bil</th>
+                                  <th className="border border-black p-0.5 text-center">Bidang</th>
+                                  <th className="border border-black p-0.5 text-left">Nama Anugerah</th>
+                                  <th className="border border-black p-0.5 text-center">Peringkat</th>
+                                  <th className="border border-black p-0.5 text-center">Tarikh Penganugerahan</th>
+                               </tr>
+                            </thead>
+                            <tbody>
+                               {individualReportData.anugerah.length === 0 ? (
+                                  <tr><td colSpan="5" className="text-center p-1 border border-black font-medium italic text-gray-500">Tiada rekod anugerah khas.</td></tr>
+                               ) : individualReportData.anugerah.map((r, i) => (
+                                  <tr key={i}>
+                                     <td className="border border-black p-0.5 text-center">{i+1}</td>
+                                     <td className="border border-black p-0.5 text-center font-bold">{r.bidang}</td>
+                                     <td className="border border-black p-0.5 font-medium text-amber-700">{r.namaAnugerah}</td>
+                                     <td className="border border-black p-0.5 text-center font-semibold">{r.peringkat}</td>
+                                     <td className="border border-black p-0.5 text-center whitespace-nowrap">{r.tarikhPaparan}</td>
+                                  </tr>
+                               ))}
+                            </tbody>
+                         </table>
+                     </div>
                  </div>
 
-                 <div className="flex justify-between items-end pt-2 shrink-0" style={{ pageBreakInside: 'avoid' }}>
+                 <div className="flex justify-between items-end pt-1 shrink-0" style={{ pageBreakInside: 'avoid' }}>
                      <div className="w-1/2 pr-4">
-                         <h3 className="font-bold text-[11px] mb-1 bg-gray-200 p-1.5">B. Analisis Kekuatan & Potensi (Spider Chart)</h3>
-                         <div className="border border-black p-2 mt-1">
+                         <h3 className="font-bold text-[10px] mb-1 bg-gray-200 p-1 border-l-2 border-black uppercase">D. Analisis Kekuatan & Potensi</h3>
+                         <div className="border border-black p-1 flex justify-center">
                              <SpiderChart data={spiderData} />
-                             <div className="mt-2 pt-2 border-t border-dashed border-gray-400 text-[10px]">
-                                 <p className="font-bold mb-1">Rumusan Mata Semasa:</p>
-                                 <ul className="grid grid-cols-2 gap-1">
-                                    <li>• Sukan: {spiderData['Sukan'] || 0} pts</li>
-                                    <li>• Ko-akademik: {spiderData['Ko-akademik'] || 0} pts</li>
-                                    <li>• Digital: {spiderData['Digital'] || 0} pts</li>
-                                    <li>• Beruniform: {spiderData['Unit Beruniform'] || 0} pts</li>
-                                 </ul>
-                             </div>
                          </div>
                      </div>
                      
-                     <div className="w-1/2 flex flex-col justify-end items-end pb-2">
+                     <div className="w-1/2 flex flex-col justify-end items-end pb-1">
                          <div className="text-center w-56">
-                             <p className="mb-10 text-[11px] text-left">Disahkan oleh,</p>
+                             <p className="mb-10 text-[10px] text-left">Disahkan oleh,</p>
                              <p className="border-b border-black w-full"></p>
                              <p className="mt-1 font-bold text-[11px]">( AZIZ BIN TAHIR )</p>
-                             <p className="text-[10px] mt-0.5 font-semibold uppercase">Guru Besar</p>
-                             <p className="text-[10px] font-semibold uppercase">Sekolah Kebangsaan Pendidikan Khas Miri</p>
-                             <p className="text-[9px] mt-1 text-gray-500">Tarikh Cetakan: {new Date().toLocaleDateString('ms-MY')}</p>
+                             <p className="text-[9px] mt-0.5 font-semibold uppercase">Guru Besar</p>
+                             <p className="text-[9px] font-semibold uppercase">Sekolah Kebangsaan Pendidikan Khas Miri</p>
+                             <p className="text-[8px] mt-1 text-gray-500">Tarikh Cetakan: {new Date().toLocaleDateString('ms-MY')}</p>
                          </div>
                      </div>
                  </div>
