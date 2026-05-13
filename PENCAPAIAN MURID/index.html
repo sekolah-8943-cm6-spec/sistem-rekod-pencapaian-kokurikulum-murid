@@ -477,7 +477,11 @@
               showToast('Rekod telah berjaya dipadam.', 'success');
             } catch (error) {
               console.error("Ralat memadam rekod:", error);
-              showToast('Ralat memadam rekod.', 'error');
+              if (error.message && error.message.toLowerCase().includes("permission")) {
+                  showToast('Tiada kebenaran Firebase. Sila kemas kini Firestore Rules anda.', 'error');
+              } else {
+                  showToast('Ralat memadam rekod.', 'error');
+              }
             }
           };
 
@@ -522,7 +526,14 @@
                return;
             }
 
-            const recordData = { ...formData, guruList: validGuru, muridList: validMurid };
+            // Bersihkan data daripada nilai 'undefined' (Firestore akan menolak data undefined)
+            const recordData = JSON.parse(JSON.stringify({ 
+                ...formData, 
+                guruList: validGuru, 
+                muridList: validMurid,
+                timestamp: Date.now()
+            }));
+            
             const recordsRef = collection(db, 'artifacts', appId, 'public', 'data', 'records');
 
             try {
@@ -538,7 +549,11 @@
               setFormData(initialFormState);
             } catch (error) {
               console.error("Ralat menyimpan rekod:", error);
-              showToast('Ralat menyimpan rekod ke pangkalan data.', 'error');
+              if (error.message && error.message.toLowerCase().includes("permission")) {
+                  showToast('Tiada kebenaran Firebase. Sila kemas kini tetapan "Rules" di konsol Firebase anda.', 'error');
+              } else {
+                  showToast('Ralat menyimpan rekod ke pangkalan data.', 'error');
+              }
             }
           };
 
