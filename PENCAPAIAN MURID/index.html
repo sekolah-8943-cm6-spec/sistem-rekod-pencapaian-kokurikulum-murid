@@ -738,14 +738,7 @@
                             bidang: r.bidang,
                             namaAnugerah: r.namaAnugerah,
                             peringkat: r.peringkatAnugerah,
-                            tarikhPaparan: formatTarikh(r.tarikhMula, r.tarikhAkhir),
-                            score: SKOR_PERINGKAT[r.peringkatAnugerah] || 0
-                        });
-                    }
-                }
-            });
-
-            const finalPrograms = BIDANG_PILIHAN.map(bidang => {
+            return BIDANG_PILIHAN.map(bidang => {
                 if (bestPrograms[bidang]) return bestPrograms[bidang];
                 return {
                     bidang: bidang,
@@ -764,10 +757,13 @@
             };
           }, [records, filterNama]);
 
-          const allStudentRecords = useMemo(() => {
-            if (filterNama === 'Semua') return [];
+          const allIndividualReportData = useMemo(() => {
+            if (filterNama === 'Semua') return { program: [], jawatan: [], anugerah: [] };
             
-            let list = [];
+            const programList = [];
+            const jawatanList = [];
+            const anugerahList = [];
+
             records.forEach(r => {
                 const muridData = r.muridList.find(m => m.nama === filterNama);
                 if (muridData) {
@@ -775,45 +771,49 @@
                     const isAnugerah = r.jenisBorang === 'Anugerah';
                     const isJawatan = r.jenisBorang === 'Jawatan';
 
-                    let pencapaianStr = [];
-                    let displayProgramName = '';
-                    let displayKategori = '';
-                    let displayPeringkat = '';
-
                     if (isProgram) {
                         const isIndividuAllowed = ['Individu', 'Individu dan Berpasukan'].includes(r.kategori);
                         const isPasukanAllowed = ['Berpasukan', 'Individu dan Berpasukan'].includes(r.kategori);
 
+                        let pencapaianStr = [];
                         if (isIndividuAllowed && muridData.pencapaianIndividu !== 'Tiada') pencapaianStr.push(`Indv: ${muridData.pencapaianIndividu}`);
                         if (isPasukanAllowed && muridData.pencapaianPasukan !== 'Tiada') pencapaianStr.push(`Pskn: ${muridData.pencapaianPasukan}`);
                         
-                        displayProgramName = r.namaProgram;
-                        displayKategori = r.kategori;
-                        displayPeringkat = r.peringkat;
-                    } else if (isAnugerah) {
-                        pencapaianStr.push(`Penerima Anugerah`);
-                        displayProgramName = r.namaAnugerah;
-                        displayKategori = 'Anugerah Khas';
-                        displayPeringkat = r.peringkatAnugerah;
+                        programList.push({
+                            bidang: r.bidang,
+                            namaProgram: r.namaProgram,
+                            kategori: r.kategori,
+                            peringkat: r.peringkat,
+                            tarikhPaparan: formatTarikh(r.tarikhMula, r.tarikhAkhir),
+                            pencapaianSebenar: pencapaianStr.length > 0 ? pencapaianStr.join(' | ') : 'Penyertaan / Tiada',
+                            tarikhS: new Date(r.tarikhMula)
+                        });
                     } else if (isJawatan) {
-                        pencapaianStr.push(`Jawatan: ${muridData.jawatan}`);
-                        displayProgramName = r.namaProgram;
-                        displayKategori = 'Jawatan Kelab/Sukan';
-                        displayPeringkat = r.peringkat;
+                        jawatanList.push({
+                            bidang: r.bidang,
+                            namaProgram: r.namaProgram,
+                            jawatan: muridData.jawatan,
+                            peringkat: r.peringkat,
+                            tarikhPaparan: formatTarikh(r.tarikhMula, r.tarikhAkhir),
+                            tarikhS: new Date(r.tarikhMula)
+                        });
+                    } else if (isAnugerah) {
+                        anugerahList.push({
+                            bidang: r.bidang,
+                            namaAnugerah: r.namaAnugerah,
+                            peringkat: r.peringkatAnugerah,
+                            tarikhPaparan: formatTarikh(r.tarikhMula, r.tarikhAkhir),
+                            tarikhS: new Date(r.tarikhMula)
+                        });
                     }
-                    
-                    list.push({
-                        ...r,
-                        namaProgramPaparan: displayProgramName,
-                        kategoriPaparan: displayKategori,
-                        peringkatPaparan: displayPeringkat,
-                        tarikhPaparan: formatTarikh(r.tarikhMula, r.tarikhAkhir),
-                        pencapaianSebenar: pencapaianStr.length > 0 ? pencapaianStr.join(' | ') : 'Penyertaan / Tiada'
-                    });
                 }
             });
 
-            return list.sort((a,b) => new Date(b.tarikhMula) - new Date(a.tarikhMula));
+            return {
+                program: programList.sort((a,b) => b.tarikhS - a.tarikhS),
+                jawatan: jawatanList.sort((a,b) => b.tarikhS - a.tarikhS),
+                anugerah: anugerahList.sort((a,b) => b.tarikhS - a.tarikhS)
+            };
           }, [records, filterNama]);
 
           const cetakStudentInfo = useMemo(() => {
@@ -1698,6 +1698,109 @@
 
                  <div className="mb-2 flex-1 flex flex-col gap-1.5">
                      <div>
+                         <h3 className="font-bold text-[10px] mb-0.5 bg-gray-200 p-1 border-l-2 border-black uppercase">A. Senarai Penglibatan & Pencapaian Keseluruhan</h3>
+                         <table className="w-full text-[9px] border-collapse border border-black">
+                            <thead>
+                               <tr className="bg-gray-100">
+                                  <th className="border border-black p-0.5 text-center w-6">Bil</th>
+                                  <th className="border border-black p-0.5 text-center">Bidang</th>
+                                  <th className="border border-black p-0.5 text-left">Nama Program</th>
+                                  <th className="border border-black p-0.5 text-center">Tarikh / Sesi</th>
+                                  <th className="border border-black p-0.5 text-center">Kategori</th>
+                                  <th className="border border-black p-0.5 text-center">Peringkat</th>
+                                  <th className="border border-black p-0.5 text-center">Pencapaian</th>
+                               </tr>
+                            </thead>
+                            <tbody>
+                               {allIndividualReportData.program.length === 0 ? (
+                                  <tr><td colSpan="7" className="text-center p-1 border border-black font-medium italic text-gray-500">Tiada rekod penglibatan kokurikulum untuk murid ini.</td></tr>
+                               ) : allIndividualReportData.program.map((r, i) => (
+                                  <tr key={i}>
+                                     <td className="border border-black p-0.5 text-center">{i+1}</td>
+                                     <td className="border border-black p-0.5 text-center font-bold">{r.bidang}</td>
+                                     <td className="border border-black p-0.5 font-medium">{r.namaProgram}</td>
+                                     <td className="border border-black p-0.5 text-center whitespace-nowrap">{r.tarikhPaparan}</td>
+                                     <td className="border border-black p-0.5 text-center">{r.kategori}</td>
+                                     <td className="border border-black p-0.5 text-center font-semibold">{r.peringkat}</td>
+                                     <td className="border border-black p-0.5 text-center font-bold">{r.pencapaianSebenar}</td>
+                                  </tr>
+                               ))}
+                            </tbody>
+                         </table>
+                     </div>
+
+                     <div>
+                         <h3 className="font-bold text-[10px] mb-0.5 bg-gray-200 p-1 border-l-2 border-black uppercase">B. Jawatan Disandang</h3>
+                         <table className="w-full text-[9px] border-collapse border border-black">
+                            <thead>
+                               <tr className="bg-gray-100">
+                                  <th className="border border-black p-0.5 text-center w-6">Bil</th>
+                                  <th className="border border-black p-0.5 text-center">Bidang</th>
+                                  <th className="border border-black p-0.5 text-left">Kelab / Sukan / Unit Beruniform</th>
+                                  <th className="border border-black p-0.5 text-center">Jawatan</th>
+                                  <th className="border border-black p-0.5 text-center">Peringkat</th>
+                                  <th className="border border-black p-0.5 text-center">Tarikh Lantikan</th>
+                               </tr>
+                            </thead>
+                            <tbody>
+                               {allIndividualReportData.jawatan.length === 0 ? (
+                                  <tr><td colSpan="6" className="text-center p-1 border border-black font-medium italic text-gray-500">Tiada rekod jawatan disandang.</td></tr>
+                               ) : allIndividualReportData.jawatan.map((r, i) => (
+                                  <tr key={i}>
+                                     <td className="border border-black p-0.5 text-center">{i+1}</td>
+                                     <td className="border border-black p-0.5 text-center font-bold">{r.bidang}</td>
+                                     <td className="border border-black p-0.5 font-medium">{r.namaProgram}</td>
+                                     <td className="border border-black p-0.5 text-center font-bold text-emerald-700">{r.jawatan}</td>
+                                     <td className="border border-black p-0.5 text-center font-semibold">{r.peringkat}</td>
+                                     <td className="border border-black p-0.5 text-center whitespace-nowrap">{r.tarikhPaparan}</td>
+                                  </tr>
+                               ))}
+                            </tbody>
+                         </table>
+                     </div>
+
+                     <div>
+                         <h3 className="font-bold text-[10px] mb-0.5 bg-gray-200 p-1 border-l-2 border-black uppercase">C. Anugerah Khas</h3>
+                         <table className="w-full text-[9px] border-collapse border border-black">
+                            <thead>
+                               <tr className="bg-gray-100">
+                                  <th className="border border-black p-0.5 text-center w-6">Bil</th>
+                                  <th className="border border-black p-0.5 text-center">Bidang</th>
+                                  <th className="border border-black p-0.5 text-left">Nama Anugerah</th>
+                                  <th className="border border-black p-0.5 text-center">Peringkat</th>
+                                  <th className="border border-black p-0.5 text-center">Tarikh Penganugerahan</th>
+                               </tr>
+                            </thead>
+                            <tbody>
+                               {allIndividualReportData.anugerah.length === 0 ? (
+                                  <tr><td colSpan="5" className="text-center p-1 border border-black font-medium italic text-gray-500">Tiada rekod anugerah khas.</td></tr>
+                               ) : allIndividualReportData.anugerah.map((r, i) => (
+                                  <tr key={i}>
+                                     <td className="border border-black p-0.5 text-center">{i+1}</td>
+                                     <td className="border border-black p-0.5 text-center font-bold">{r.bidang}</td>
+                                     <td className="border border-black p-0.5 font-medium text-amber-700">{r.namaAnugerah}</td>
+                                     <td className="border border-black p-0.5 text-center font-semibold">{r.peringkat}</td>
+                                     <td className="border border-black p-0.5 text-center whitespace-nowrap">{r.tarikhPaparan}</td>
+                                  </tr>
+                               ))}
+                            </tbody>
+                         </table>
+                     </div>
+                 </div>
+                 
+                 <div className="mt-2 flex justify-end shrink-0" style={{ pageBreakInside: 'avoid' }}>
+                     <div className="text-center w-56">
+                         <p className="mb-10 text-[10px] text-left">Disahkan oleh,</p>
+                         <p className="border-b border-black w-full"></p>
+                         <p className="mt-1 font-bold text-[11px]">( AZIZ BIN TAHIR )</p>
+                         <p className="text-[10px] mt-0.5 font-semibold uppercase">Guru Besar</p>
+                         <p className="text-[10px] font-semibold uppercase">Sekolah Kebangsaan Pendidikan Khas Miri</p>
+                         <p className="text-[9px] mt-1 text-gray-500">Tarikh Cetakan: {new Date().toLocaleDateString('ms-MY')}</p>
+                     </div>
+                 </div>
+             </div>
+         ) : (
+             <div className="h-full flex flex-col">
                          <h3 className="font-bold text-[10px] mb-0.5 bg-gray-200 p-1 border-l-2 border-black uppercase">A. Pencapaian Pertandingan (Tertinggi Setiap Bidang)</h3>
                          <table className="w-full text-[9px] border-collapse border border-black">
                             <thead>
