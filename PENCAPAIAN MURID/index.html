@@ -61,19 +61,6 @@
         const PERINGKAT_ANUGERAH_PILIHAN = ['Tiada', 'Sekolah', 'Daerah', 'Bahagian', 'Negeri', 'Kebangsaan', 'Antarabangsa'];
         const JAWATAN_PILIHAN = ['Tiada', 'Pengerusi / Ketua', 'Naib Pengerusi / Penolong', 'Setiausaha', 'Bendahari', 'Ahli Jawatankuasa (AJK)', 'Ahli Aktif', 'Ketua Pengawas', 'Penolong Ketua Pengawas', 'Pengawas', 'Pengawas Pusat Sumber', 'Pembimbing Rakan Sebaya'];
 
-        // Senarai Guru
-        const SENARAI_GURU = [
-          "AIDA MASTURINA BINTI HAMKA", "AIFA NUR BESTARI BINTI RADUAN", "AZIZ BIN TAHIR",
-          "BRYAN ANAK CONSTANT", "EIFILISIA AMBER ANAK MERVIN", "FAZRI BIN BAKERI",
-          "HAIROL BIN ISMAIL", "HILWA HAYATI BINTI MOHAMAD AJALAN", "JACQUELINE TIONG HOE DING",
-          "JERIAH ANAK SIMON", "JIMMY ANAK PETER", "KHAIRI BIN SAHARI",
-          "LING MEE CHOO", "MARY JANE AMOI UMPANG ANAK DANIEL", "MOHAMAD ABIDIN BIN SIPEK",
-          "MOHD RAFEEQ BIN SULAIMAN", "MUHAMMAD ZULHUSAINI BIN ABDUL WAHAB", "NUR AZLIN BINTI NORIZAN",
-          "NUR HIDAYU BINTI YUSOP", "NURUL HUDA BTE MOHD IHWAN", "SABARIAH BINTI SOLHI",
-          "SALIHIN BIN AHMAD", "SYAEEZA LIANA BINTI RAMLI", "TENG RU YUN",
-          "TING HUA EE", "TING YU YONG", "WONG PICK KING", "ZEPRINA ANAK BENIK"
-        ].sort();
-
         // Sistem Markah/Skor Hierarki Carta Spider & Penentuan Tokoh
         const SKOR_PERINGKAT = { 'Antarabangsa': 60, 'Kebangsaan': 50, 'Negeri': 40, 'Bahagian': 30, 'Daerah': 20, 'Sekolah': 10 };
         const SKOR_PENCAPAIAN = { 'Johan': 6, 'Naib Johan': 5, 'Ke-3': 4, 'Ke-4': 3, 'Ke-5': 2, 'Penyertaan': 1, 'Tiada': 0 };
@@ -86,6 +73,7 @@
 
         // Pautan Google Sheets secara Live 
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRN7al7Ea32RemioaD3P_32WSh30ycyCuFC4jJktFWBwTENsFI8qdZ9fX04-89xEvOfRu4mvPXZd01G/pub?output=csv';
+        const GURU_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSXtz4RR-cAtr7c7FFSyA0tJ6ZR4IFIzOQnyJZd5cGmR04dF8wOKUiFDqSrNBI1qmGhWSpEsESwAhON/pub?output=csv';
 
         const DEFAULT_KELAS = [
           'PRASEKOLAH', '1BD', '1BP DELIMA', '1BP ZAMRUD', 
@@ -149,6 +137,7 @@
           const [editingRecordId, setEditingRecordId] = useState(null);
           const [isLoadingData, setIsLoadingData] = useState(true);
           const [masterData, setMasterData] = useState([]);
+          const [masterGuru, setMasterGuru] = useState([]);
 
           useEffect(() => {
             const fetchData = async () => {
@@ -206,6 +195,41 @@
                   }
                   setMasterData(parsedData);
                 }
+
+                const responseGuru = await fetch(GURU_CSV_URL);
+                const csvTextGuru = await responseGuru.text();
+                const rowsGuru = parseCSV(csvTextGuru);
+                
+                let headersGuru = [];
+                let startIndexGuru = -1;
+                
+                for(let i=0; i<Math.min(5, rowsGuru.length); i++) {
+                    if(rowsGuru[i] && rowsGuru[i].some(h => h && h.toUpperCase().includes('NAMA'))) {
+                        headersGuru = rowsGuru[i].map(h => h ? h.toUpperCase().trim() : '');
+                        startIndexGuru = i;
+                        break;
+                    }
+                }
+
+                let nameIdxGuru = 0;
+                if (startIndexGuru !== -1) {
+                    nameIdxGuru = headersGuru.findIndex(h => h.includes('NAMA'));
+                    if (nameIdxGuru === -1) nameIdxGuru = 0;
+                }
+
+                const parsedGuru = [];
+                const startLoopGuru = startIndexGuru !== -1 ? startIndexGuru + 1 : 0;
+                for (let i = startLoopGuru; i < rowsGuru.length; i++) {
+                    const row = rowsGuru[i];
+                    if (row && row[nameIdxGuru] && row[nameIdxGuru].trim()) {
+                        const namaGuru = row[nameIdxGuru].trim().toUpperCase();
+                        if (namaGuru !== 'NAMA' && !namaGuru.includes('NAMA GURU')) {
+                            parsedGuru.push(namaGuru);
+                        }
+                    }
+                }
+                setMasterGuru(Array.from(new Set(parsedGuru)).sort());
+
               } catch (error) {
                 console.error("Gagal memuat turun data CSV:", error);
               } finally {
@@ -701,7 +725,7 @@
                                     ) : (
                                       <select value={guru.nama || ""} onChange={(e) => { if (e.target.value === 'MANUAL') { handleGuruChange(guru.id, 'isManual', true); handleGuruChange(guru.id, 'nama', ''); } else { handleGuruChange(guru.id, 'nama', e.target.value); } }} className="w-full p-2 text-sm border border-gray-300 rounded-md bg-white focus:ring-blue-500 focus:border-blue-500" required>
                                         <option value="" disabled>Pilih Nama Guru {formData.guruList.length > 1 ? idx + 1 : ''}</option>
-                                        {SENARAI_GURU.map(nama => <option key={nama} value={nama}>{nama}</option>)}
+                                        {masterGuru.map(nama => <option key={nama} value={nama}>{nama}</option>)}
                                         <option value="MANUAL" className="font-semibold text-blue-600 bg-blue-50">+ Tiada dalam senarai (Taip Manual)</option>
                                       </select>
                                     )}
