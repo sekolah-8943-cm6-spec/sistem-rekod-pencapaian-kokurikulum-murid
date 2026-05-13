@@ -13,8 +13,10 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
         @media print {
-            @page { margin: 0; size: A4; }
-            body { margin: 1cm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            @page { margin: 1cm; size: A4 portrait; }
+            body { margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            /* Memastikan kandungan cetakan muat dalam 1 muka surat */
+            .print-1-page { max-height: 27cm; overflow: hidden; }
         }
     </style>
 </head>
@@ -104,12 +106,12 @@
           const pts = `100,${100 - SukanR} ${100 + KoakademikR},100 100,${100 + DigitalR} ${100 - UnitR},100`;
 
           return (
-            <div className="w-full max-w-[350px] mx-auto bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col items-center print:shadow-none print:border-none print:p-0">
-              <div className="flex items-center gap-2 mb-2 text-indigo-700 w-full border-b pb-2 print:text-black print:border-black">
+            <div className="w-full max-w-[350px] print:max-w-[180px] mx-auto bg-white p-4 print:p-0 rounded-xl border border-gray-100 shadow-sm print:border-none print:shadow-none flex flex-col items-center">
+              <div className="flex items-center gap-2 mb-2 text-indigo-700 w-full border-b pb-2 print:border-black print:pb-1 print:mb-1 print:justify-center">
                 <Activity className="w-5 h-5 print:hidden" />
-                <h3 className="font-semibold text-sm">Visualisasi Kekuatan (Markah)</h3>
+                <h3 className="font-semibold text-sm print:text-[10px] print:text-black">Visualisasi Markah</h3>
               </div>
-              <svg viewBox="-30 -30 260 260" className="w-full h-auto overflow-visible mt-2">
+              <svg viewBox="-30 -30 260 260" className="w-full h-auto overflow-visible mt-2 print:mt-1">
                 {[20, 40, 60, 80].map(r => (
                   <polygon key={r} points={`100,${100-r} ${100+r},100 100,${100+r} ${100-r},100`} fill="none" stroke="#e2e8f0" strokeWidth="1" className="print:stroke-gray-300" />
                 ))}
@@ -123,10 +125,10 @@
                 <circle cx="100" cy={100 + DigitalR} r="3" fill="#4338ca" className="print:fill-black" />
                 <circle cx={100 - UnitR} cy="100" r="3" fill="#4338ca" className="print:fill-black" />
 
-                <text x="100" y="5" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black">Sukan ({data['Sukan']})</text>
-                <text x="210" y="104" textAnchor="start" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black">Ko-akademik ({data['Ko-akademik']})</text>
-                <text x="100" y="200" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black">Digital ({data['Digital']})</text>
-                <text x="-10" y="104" textAnchor="end" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black">Unit Beruniform ({data['Unit Beruniform']})</text>
+                <text x="100" y="5" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black print:text-[10px]">Sukan ({data['Sukan']})</text>
+                <text x="210" y="104" textAnchor="start" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black print:text-[10px]">Ko-akademik ({data['Ko-akademik']})</text>
+                <text x="100" y="200" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black print:text-[10px]">Digital ({data['Digital']})</text>
+                <text x="-10" y="104" textAnchor="end" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black print:text-[10px]">Beruniform ({data['Unit Beruniform']})</text>
               </svg>
             </div>
           );
@@ -1223,54 +1225,54 @@
         </main>
       </div>
 
-      <div className="hidden print:block w-full bg-white text-black p-8 font-sans">
+      <div className="hidden print:block w-full bg-white text-black p-4 font-sans print-1-page">
          {printMode === 'tokoh' ? (
-             <div>
-                 <div className="flex flex-col items-center border-b-4 border-black pb-4 mb-6">
-                     <div className="w-24 h-24 flex items-center justify-center overflow-hidden mb-2">
-                         <img src="latest 6.5.jpg" alt="[Logo Sekolah]" className="w-full h-full object-contain" onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/150?text=Logo+Sekolah'; }} />
+             <div className="h-full flex flex-col">
+                 <div className="flex flex-col items-center border-b-[3px] border-black pb-2 mb-3">
+                     <div className="w-20 h-20 flex items-center justify-center overflow-hidden mb-1">
+                         <img src="logo sekolah.jpg" alt="Logo Sekolah" className="w-full h-full object-contain" onError={(e) => { e.target.onerror = null; e.target.src = 'latest 6.5.jpg'; }} />
                      </div>
-                     <h1 className="text-2xl font-extrabold uppercase text-center">Sekolah Kebangsaan Pendidikan Khas Miri</h1>
-                     <p className="text-sm font-bold mt-2 bg-gray-800 text-white inline-block px-4 py-1 rounded">LAPORAN CALON TOKOH KOKURIKULUM</p>
+                     <h1 className="text-xl font-extrabold uppercase text-center">Sekolah Kebangsaan Pendidikan Khas Miri</h1>
+                     <p className="text-[11px] font-bold mt-1 bg-gray-800 text-white inline-block px-3 py-0.5 rounded">LAPORAN CALON TOKOH KOKURIKULUM</p>
                  </div>
 
-                 <div className="mb-6 border-l-4 border-black pl-4">
-                     <table className="text-sm">
+                 <div className="mb-4 border-l-4 border-black pl-3">
+                     <table className="text-xs">
                         <tbody>
-                           <tr><td className="w-32 font-bold py-1">Nama Murid</td><td className="w-4">:</td><td className="py-1 font-semibold text-base">{filterNama !== 'Semua' ? filterNama : ''}</td></tr>
-                           <tr><td className="w-32 font-bold py-1">Kelas</td><td className="w-4">:</td><td className="py-1">{cetakStudentInfo.kelas}</td></tr>
-                           <tr><td className="w-32 font-bold py-1">Jantina</td><td className="w-4">:</td><td className="py-1">{cetakStudentInfo.jantina}</td></tr>
+                           <tr><td className="w-28 font-bold py-0.5">Nama Murid</td><td className="w-3">:</td><td className="py-0.5 font-semibold">{filterNama !== 'Semua' ? filterNama : ''}</td></tr>
+                           <tr><td className="w-28 font-bold py-0.5">Kelas</td><td className="w-3">:</td><td className="py-0.5">{cetakStudentInfo.kelas}</td></tr>
+                           <tr><td className="w-28 font-bold py-0.5">Jantina</td><td className="w-3">:</td><td className="py-0.5">{cetakStudentInfo.jantina}</td></tr>
                         </tbody>
                      </table>
                  </div>
 
-                 <div className="mb-8">
-                     <h3 className="font-bold text-md mb-2 bg-gray-200 p-2">Senarai Penglibatan & Pencapaian Keseluruhan</h3>
-                     <table className="w-full text-sm border-collapse border border-black mt-2">
+                 <div className="mb-4 flex-1">
+                     <h3 className="font-bold text-xs mb-1.5 bg-gray-200 p-1.5">Senarai Penglibatan & Pencapaian Keseluruhan</h3>
+                     <table className="w-full text-[10px] border-collapse border border-black mt-1">
                         <thead>
                            <tr className="bg-gray-100">
-                              <th className="border border-black p-2 text-center w-10">Bil</th>
-                              <th className="border border-black p-2 text-center">Bidang</th>
-                              <th className="border border-black p-2 text-left">Nama Program / Jawatan</th>
-                              <th className="border border-black p-2 text-center">Tarikh / Sesi</th>
-                              <th className="border border-black p-2 text-center">Kategori</th>
-                              <th className="border border-black p-2 text-center">Peringkat</th>
-                              <th className="border border-black p-2 text-center">Pencapaian</th>
+                              <th className="border border-black p-1 text-center w-8">Bil</th>
+                              <th className="border border-black p-1 text-center">Bidang</th>
+                              <th className="border border-black p-1 text-left">Nama Program / Jawatan</th>
+                              <th className="border border-black p-1 text-center">Tarikh / Sesi</th>
+                              <th className="border border-black p-1 text-center">Kategori</th>
+                              <th className="border border-black p-1 text-center">Peringkat</th>
+                              <th className="border border-black p-1 text-center">Pencapaian</th>
                            </tr>
                         </thead>
                         <tbody>
                            {allStudentRecords.length === 0 ? (
-                              <tr><td colSpan="7" className="text-center p-4 border border-black font-medium italic text-gray-500">Tiada rekod penglibatan kokurikulum untuk murid ini.</td></tr>
+                              <tr><td colSpan="7" className="text-center p-3 border border-black font-medium italic text-gray-500">Tiada rekod penglibatan kokurikulum untuk murid ini.</td></tr>
                            ) : (
                               allStudentRecords.map((r, i) => (
                                  <tr key={i}>
-                                    <td className="border border-black p-2 text-center">{i+1}</td>
-                                    <td className="border border-black p-2 text-center font-bold text-xs">{r.bidang}</td>
-                                    <td className="border border-black p-2 font-medium">{r.namaProgramPaparan}</td>
-                                    <td className="border border-black p-2 text-center text-xs whitespace-nowrap">{r.tarikhPaparan}</td>
-                                    <td className="border border-black p-2 text-center text-xs">{r.kategoriPaparan}</td>
-                                    <td className="border border-black p-2 text-center font-semibold text-xs">{r.peringkatPaparan}</td>
-                                    <td className="border border-black p-2 text-center font-bold text-xs">{r.pencapaianSebenar}</td>
+                                    <td className="border border-black p-1 text-center">{i+1}</td>
+                                    <td className="border border-black p-1 text-center font-bold">{r.bidang}</td>
+                                    <td className="border border-black p-1 font-medium">{r.namaProgramPaparan}</td>
+                                    <td className="border border-black p-1 text-center whitespace-nowrap">{r.tarikhPaparan}</td>
+                                    <td className="border border-black p-1 text-center">{r.kategoriPaparan}</td>
+                                    <td className="border border-black p-1 text-center font-semibold">{r.peringkatPaparan}</td>
+                                    <td className="border border-black p-1 text-center font-bold">{r.pencapaianSebenar}</td>
                                  </tr>
                               ))
                            )}
@@ -1278,79 +1280,73 @@
                      </table>
                  </div>
                  
-                 <div className="mt-16 flex justify-end" style={{ pageBreakInside: 'avoid' }}>
-                     <div className="text-center w-64">
-                         <p className="mb-20 text-sm text-left">Disahkan oleh,</p>
-                         <p className="border-b-2 border-black w-full"></p>
-                         <p className="mt-2 font-bold text-sm">( AZIZ BIN TAHIR )</p>
-                         <p className="text-xs mt-1 font-semibold uppercase">Guru Besar</p>
-                         <p className="text-xs mt-1 font-semibold uppercase">Sekolah Kebangsaan Pendidikan Khas Miri</p>
-                         <p className="text-xs mt-1 text-gray-500">Tarikh Cetakan: {new Date().toLocaleDateString('ms-MY')}</p>
+                 <div className="mt-4 flex justify-end shrink-0">
+                     <div className="text-center w-56">
+                         <p className="mb-10 text-[11px] text-left">Disahkan oleh,</p>
+                         <p className="border-b border-black w-full"></p>
+                         <p className="mt-1 font-bold text-[11px]">( AZIZ BIN TAHIR )</p>
+                         <p className="text-[10px] mt-0.5 font-semibold uppercase">Guru Besar</p>
+                         <p className="text-[10px] font-semibold uppercase">Sekolah Kebangsaan Pendidikan Khas Miri</p>
+                         <p className="text-[9px] mt-1 text-gray-500">Tarikh Cetakan: {new Date().toLocaleDateString('ms-MY')}</p>
                      </div>
                  </div>
              </div>
          ) : (
-             <div>
-                 <div className="flex items-center justify-between border-b-4 border-black pb-4 mb-6">
-                     <div className="w-24 h-24 flex items-center justify-center text-xs font-bold text-gray-500 text-center overflow-hidden">
-                         <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/Coat_of_arms_of_Malaysia.svg/200px-Coat_of_arms_of_Malaysia.svg.png" alt="[Jata Negara Malaysia]" className="w-full h-full object-contain" onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/150?text=Jata+Negara'; }} />
+             <div className="h-full flex flex-col">
+                 <div className="flex flex-col items-center border-b-[3px] border-black pb-2 mb-3">
+                     <div className="w-20 h-20 flex items-center justify-center overflow-hidden mb-1">
+                         <img src="logo sekolah.jpg" alt="Logo Sekolah" className="w-full h-full object-contain" onError={(e) => { e.target.onerror = null; e.target.src = 'latest 6.5.jpg'; }} />
                      </div>
-                     <div className="text-center flex-1 px-4">
-                         <h1 className="text-2xl font-extrabold uppercase">Sekolah Kebangsaan Pendidikan Khas Miri</h1>
-                         <p className="text-sm uppercase font-semibold text-gray-700 mt-1">Sistem Rekod Pencapaian Kokurikulum Murid</p>
-                         <p className="text-sm font-bold mt-2 bg-gray-800 text-white inline-block px-4 py-1 rounded">LAPORAN PENCAPAIAN KOKURIKULUM INDIVIDU</p>
-                     </div>
-                     <div className="w-24 h-24 flex items-center justify-center text-xs font-bold text-gray-500 text-center overflow-hidden">
-                         <img src="latest 6.5.jpg" alt="[Logo Sekolah]" className="w-full h-full object-contain" onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/150?text=Logo+Sekolah'; }} />
-                     </div>
+                     <h1 className="text-xl font-extrabold uppercase text-center">Sekolah Kebangsaan Pendidikan Khas Miri</h1>
+                     <p className="text-[11px] font-bold mt-1 bg-gray-800 text-white inline-block px-3 py-0.5 rounded">LAPORAN PENCAPAIAN KOKURIKULUM INDIVIDU</p>
                  </div>
 
-                 <div className="mb-6 border-l-4 border-black pl-4">
-                     <table className="text-sm">
+                 <div className="mb-4 border-l-4 border-black pl-3">
+                     <table className="text-xs">
                         <tbody>
-                           <tr><td className="w-32 font-bold py-1">Nama Murid</td><td className="w-4">:</td><td className="py-1 font-semibold text-base">{filterNama !== 'Semua' ? filterNama : ''}</td></tr>
-                           <tr><td className="w-32 font-bold py-1">Kelas</td><td className="w-4">:</td><td className="py-1">{cetakStudentInfo.kelas}</td></tr>
-                           <tr><td className="w-32 font-bold py-1">Jantina</td><td className="w-4">:</td><td className="py-1">{cetakStudentInfo.jantina}</td></tr>
+                           <tr><td className="w-28 font-bold py-0.5">Nama Murid</td><td className="w-3">:</td><td className="py-0.5 font-semibold">{filterNama !== 'Semua' ? filterNama : ''}</td></tr>
+                           <tr><td className="w-28 font-bold py-0.5">Kelas</td><td className="w-3">:</td><td className="py-0.5">{cetakStudentInfo.kelas}</td></tr>
+                           <tr><td className="w-28 font-bold py-0.5">Jantina</td><td className="w-3">:</td><td className="py-0.5">{cetakStudentInfo.jantina}</td></tr>
                         </tbody>
                      </table>
                  </div>
 
-                 <div className="mb-8">
-                     <h3 className="font-bold text-md mb-2 bg-gray-200 p-2">A. Senarai Penglibatan & Pencapaian Pertandingan (Tertinggi Setiap Bidang)</h3>
-                     <table className="w-full text-sm border-collapse border border-black mt-2">
+                 <div className="mb-4 flex-1">
+                     <h3 className="font-bold text-xs mb-1.5 bg-gray-200 p-1.5">A. Senarai Penglibatan & Pencapaian Pertandingan (Tertinggi Setiap Bidang)</h3>
+                     <table className="w-full text-[10px] border-collapse border border-black mt-1">
                         <thead>
                            <tr className="bg-gray-100">
-                              <th className="border border-black p-2 text-center w-10">Bil</th>
-                              <th className="border border-black p-2 text-center">Bidang</th>
-                              <th className="border border-black p-2 text-left">Nama Program / Jawatan</th>
-                              <th className="border border-black p-2 text-center">Tarikh / Sesi</th>
-                              <th className="border border-black p-2 text-center">Kategori</th>
-                              <th className="border border-black p-2 text-center">Peringkat</th>
-                              <th className="border border-black p-2 text-center">Pencapaian</th>
+                              <th className="border border-black p-1 text-center w-8">Bil</th>
+                              <th className="border border-black p-1 text-center">Bidang</th>
+                              <th className="border border-black p-1 text-left">Nama Program / Jawatan</th>
+                              <th className="border border-black p-1 text-center">Tarikh / Sesi</th>
+                              <th className="border border-black p-1 text-center">Kategori</th>
+                              <th className="border border-black p-1 text-center">Peringkat</th>
+                              <th className="border border-black p-1 text-center">Pencapaian</th>
                            </tr>
                         </thead>
                         <tbody>
                            {reportRecords.map((r, i) => (
                               <tr key={i}>
-                                 <td className="border border-black p-2 text-center">{i+1}</td>
-                                 <td className="border border-black p-2 text-center font-bold text-xs">{r.bidang}</td>
-                                 <td className="border border-black p-2 font-medium">{r.namaProgram}</td>
-                                 <td className="border border-black p-2 text-center text-xs whitespace-nowrap">{r.tarikhPaparan}</td>
-                                 <td className="border border-black p-2 text-center text-xs">{r.kategori}</td>
-                                 <td className="border border-black p-2 text-center font-semibold text-xs">{r.peringkat}</td>
-                                 <td className="border border-black p-2 text-center font-bold text-xs">{r.pencapaianSebenar}</td>
+                                 <td className="border border-black p-1 text-center">{i+1}</td>
+                                 <td className="border border-black p-1 text-center font-bold">{r.bidang}</td>
+                                 <td className="border border-black p-1 font-medium">{r.namaProgram}</td>
+                                 <td className="border border-black p-1 text-center whitespace-nowrap">{r.tarikhPaparan}</td>
+                                 <td className="border border-black p-1 text-center">{r.kategori}</td>
+                                 <td className="border border-black p-1 text-center font-semibold">{r.peringkat}</td>
+                                 <td className="border border-black p-1 text-center font-bold">{r.pencapaianSebenar}</td>
                               </tr>
                            ))}
                         </tbody>
                      </table>
                  </div>
 
-                 <div className="flex justify-between items-start pt-4" style={{ pageBreakInside: 'avoid' }}>
-                     <div className="w-1/2 pr-8">
-                         <h3 className="font-bold text-md mb-2 bg-gray-200 p-2">B. Analisis Kekuatan & Potensi (Spider Chart)</h3>
-                         <div className="border border-black p-4 mt-2">
+                 <div className="flex justify-between items-end pt-2 shrink-0" style={{ pageBreakInside: 'avoid' }}>
+                     <div className="w-1/2 pr-4">
+                         <h3 className="font-bold text-[11px] mb-1 bg-gray-200 p-1.5">B. Analisis Kekuatan & Potensi (Spider Chart)</h3>
+                         <div className="border border-black p-2 mt-1">
                              <SpiderChart data={spiderData} />
-                             <div className="mt-4 pt-4 border-t border-dashed border-gray-400 text-xs">
+                             <div className="mt-2 pt-2 border-t border-dashed border-gray-400 text-[10px]">
                                  <p className="font-bold mb-1">Rumusan Mata Semasa:</p>
                                  <ul className="grid grid-cols-2 gap-1">
                                     <li>• Sukan: {spiderData['Sukan'] || 0} pts</li>
@@ -1362,14 +1358,14 @@
                          </div>
                      </div>
                      
-                     <div className="w-1/2 flex flex-col justify-end items-end pt-8">
-                         <div className="text-center w-64 mt-32">
-                             <p className="mb-20 text-sm text-left">Disahkan oleh,</p>
-                             <p className="border-b-2 border-black w-full"></p>
-                             <p className="mt-2 font-bold text-sm">( AZIZ BIN TAHIR )</p>
-                             <p className="text-xs mt-1 font-semibold uppercase">Guru Besar</p>
-                             <p className="text-xs mt-1 font-semibold uppercase">Sekolah Kebangsaan Pendidikan Khas Miri</p>
-                             <p className="text-xs mt-1 text-gray-500">Tarikh Cetakan: {new Date().toLocaleDateString('ms-MY')}</p>
+                     <div className="w-1/2 flex flex-col justify-end items-end pb-2">
+                         <div className="text-center w-56">
+                             <p className="mb-10 text-[11px] text-left">Disahkan oleh,</p>
+                             <p className="border-b border-black w-full"></p>
+                             <p className="mt-1 font-bold text-[11px]">( AZIZ BIN TAHIR )</p>
+                             <p className="text-[10px] mt-0.5 font-semibold uppercase">Guru Besar</p>
+                             <p className="text-[10px] font-semibold uppercase">Sekolah Kebangsaan Pendidikan Khas Miri</p>
+                             <p className="text-[9px] mt-1 text-gray-500">Tarikh Cetakan: {new Date().toLocaleDateString('ms-MY')}</p>
                          </div>
                      </div>
                  </div>
