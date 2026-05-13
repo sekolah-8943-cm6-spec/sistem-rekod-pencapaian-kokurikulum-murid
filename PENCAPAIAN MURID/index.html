@@ -23,8 +23,29 @@
 <body class="bg-slate-50">
     <div id="root"></div>
 
-    <script type="text/babel">
+    <script type="text/babel" data-type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
         const { useState, useMemo, useEffect } = React;
+
+        // Firebase Configuration (Dari yang diberikan)
+        const firebaseConfig = {
+          apiKey: "AIzaSyCJj6xYrtb5ceqe_5Nq4ikGACVVYL4Q-sc",
+          authDomain: "rekod-kk-murid.firebaseapp.com",
+          projectId: "rekod-kk-murid",
+          storageBucket: "rekod-kk-murid.firebasestorage.app",
+          messagingSenderId: "738134533461",
+          appId: "1:738134533461:web:7dd9b41f5a5f406732bbdc",
+          measurementId: "G-YB9V1ZYSEN"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         // --- KOMPONEN IKON TERBINA DALAM ---
         const Icon = ({ children, className = "w-5 h-5", title }) => (
@@ -60,6 +81,19 @@
         const PENCAPAIAN_PASUKAN_PILIHAN = ['Tiada', 'Johan', 'Naib Johan', 'Ke-3', 'Penyertaan'];
         const PERINGKAT_ANUGERAH_PILIHAN = ['Tiada', 'Sekolah', 'Daerah', 'Bahagian', 'Negeri', 'Kebangsaan', 'Antarabangsa'];
         const JAWATAN_PILIHAN = ['Tiada', 'Pengerusi / Ketua', 'Naib Pengerusi / Penolong', 'Setiausaha', 'Bendahari', 'Ahli Jawatankuasa (AJK)', 'Ahli Aktif', 'Ketua Pengawas', 'Penolong Ketua Pengawas', 'Pengawas', 'Pengawas Pusat Sumber', 'Pembimbing Rakan Sebaya'];
+
+        // Senarai Guru
+        const SENARAI_GURU = [
+          "AIDA MASTURINA BINTI HAMKA", "AIFA NUR BESTARI BINTI RADUAN", "AZIZ BIN TAHIR",
+          "BRYAN ANAK CONSTANT", "EIFILISIA AMBER ANAK MERVIN", "FAZRI BIN BAKERI",
+          "HAIROL BIN ISMAIL", "HILWA HAYATI BINTI MOHAMAD AJALAN", "JACQUELINE TIONG HOE DING",
+          "JERIAH ANAK SIMON", "JIMMY ANAK PETER", "KHAIRI BIN SAHARI",
+          "LING MEE CHOO", "MARY JANE AMOI UMPANG ANAK DANIEL", "MOHAMAD ABIDIN BIN SIPEK",
+          "MOHD RAFEEQ BIN SULAIMAN", "MUHAMMAD ZULHUSAINI BIN ABDUL WAHAB", "NUR AZLIN BINTI NORIZAN",
+          "NUR HIDAYU BINTI YUSOP", "NURUL HUDA BTE MOHD IHWAN", "SABARIAH BINTI SOLHI",
+          "SALIHIN BIN AHMAD", "SYAEEZA LIANA BINTI RAMLI", "TENG RU YUN",
+          "TING HUA EE", "TING YU YONG", "WONG PICK KING", "ZEPRINA ANAK BENIK"
+        ].sort();
 
         // Sistem Markah/Skor Hierarki Carta Spider & Penentuan Tokoh
         const SKOR_PERINGKAT = { 'Antarabangsa': 60, 'Kebangsaan': 50, 'Negeri': 40, 'Bahagian': 30, 'Daerah': 20, 'Sekolah': 10 };
@@ -126,6 +160,7 @@
           const [activeTab, setActiveTab] = useState('form'); 
           const [summaryView, setSummaryView] = useState('murid'); // 'murid' | 'guru'
           const [records, setRecords] = useState([]);
+          const [user, setUser] = useState(null);
           
           const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
           const [printMode, setPrintMode] = useState('umum'); 
@@ -139,6 +174,44 @@
           const [isLoadingData, setIsLoadingData] = useState(true);
           const [masterData, setMasterData] = useState([]);
           const [masterGuru, setMasterGuru] = useState([]);
+
+          // --- FIREBASE AUTH & FIRESTORE SYNC ---
+          useEffect(() => {
+            const initAuth = async () => {
+              try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                  try {
+                    // Cuba log masuk dengan token jika di persekitaran rasmi
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                  } catch (tokenError) {
+                    // Jika token tak sepadan kerana pangkalan data custom digunakan
+                    console.warn("Gagal menggunakan token rasmi, beralih ke mod awan (Anonymous)", tokenError);
+                    await signInAnonymously(auth);
+                  }
+                } else {
+                  // Tiada token ditemui, log masuk tanpa nama
+                  await signInAnonymously(auth);
+                }
+              } catch (error) {
+                console.error("Firebase Auth Error:", error);
+              }
+            };
+            initAuth();
+            const unsubscribe = onAuthStateChanged(auth, setUser);
+            return () => unsubscribe();
+          }, []);
+
+          useEffect(() => {
+            if (!user) return;
+            const recordsRef = collection(db, 'artifacts', appId, 'public', 'data', 'records');
+            const unsubscribe = onSnapshot(recordsRef, (snapshot) => {
+              const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+              setRecords(data);
+            }, (error) => {
+              console.error("Firestore Error:", error);
+            });
+            return () => unsubscribe();
+          }, [user]);
 
           useEffect(() => {
             const fetchData = async () => {
@@ -384,14 +457,26 @@
             setFormData(initialFormState);
           };
 
-          const handleDelete = (id) => {
-            setRecords(prev => prev.filter(r => r.id !== id));
-            if (editingRecordId === id) cancelEdit();
-            showToast('Rekod telah berjaya dipadam.', 'success');
+          const handleDelete = async (id) => {
+            if (!user) return;
+            try {
+              const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'records', id);
+              await deleteDoc(docRef);
+              if (editingRecordId === id) cancelEdit();
+              showToast('Rekod telah berjaya dipadam.', 'success');
+            } catch (error) {
+              console.error("Ralat memadam rekod:", error);
+              showToast('Ralat memadam rekod.', 'error');
+            }
           };
 
-          const handleSave = (e) => {
+          const handleSave = async (e) => {
             e.preventDefault();
+            if (!user) {
+              showToast('Pangkalan data sedang dimuatkan, sila cuba sebentar lagi.', 'error');
+              return;
+            }
+
             const isProgram = formData.jenisBorang === 'Program';
             const isAnugerah = formData.jenisBorang === 'Anugerah';
             const isJawatan = formData.jenisBorang === 'Jawatan';
@@ -426,17 +511,24 @@
                return;
             }
 
-            if (editingRecordId) {
-              setRecords(prev => prev.map(r => r.id === editingRecordId ? { ...formData, guruList: validGuru, muridList: validMurid } : r));
-              setEditingRecordId(null);
-              showToast('Data berjaya dikemaskini!', 'success');
-            } else {
-              const newRecord = { ...formData, guruList: validGuru, id: Date.now().toString(), muridList: validMurid };
-              setRecords(prev => [...prev, newRecord]);
-              showToast('Data berjaya disimpan!', 'success');
+            const recordData = { ...formData, guruList: validGuru, muridList: validMurid };
+            const recordsRef = collection(db, 'artifacts', appId, 'public', 'data', 'records');
+
+            try {
+              if (editingRecordId) {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'records', editingRecordId);
+                await updateDoc(docRef, recordData);
+                setEditingRecordId(null);
+                showToast('Data berjaya dikemaskini!', 'success');
+              } else {
+                await addDoc(recordsRef, recordData);
+                showToast('Data berjaya disimpan!', 'success');
+              }
+              setFormData(initialFormState);
+            } catch (error) {
+              console.error("Ralat menyimpan rekod:", error);
+              showToast('Ralat menyimpan rekod ke pangkalan data.', 'error');
             }
-            
-            setFormData(initialFormState);
           };
 
           const { summaryData, spiderData, tokohLelaki, tokohPerempuan } = useMemo(() => {
@@ -1390,7 +1482,7 @@
                          <img src="logo sekolah.jpg" alt="Logo Sekolah" className="w-full h-full object-contain" onError={(e) => { e.target.onerror = null; e.target.src = 'latest 6.5.jpg'; }} />
                      </div>
                      <h1 className="text-xl font-extrabold uppercase text-center">Sekolah Kebangsaan Pendidikan Khas Miri</h1>
-                     <p className="text-[11px] font-bold mt-1 bg-gray-800 text-white inline-block px-3 py-0.5 rounded">LAPORAN PENGLIBATAN GURU PENGIRING/JURULATIH</p>
+                     <p className="text-[11px] font-bold mt-1 bg-gray-800 text-white inline-block px-3 py-0.5 rounded">LAPORAN PENGLIBATAN GURU PENGIRING / PENASIHAT</p>
                  </div>
 
                  <div className="mb-4 border-l-4 border-black pl-3">
