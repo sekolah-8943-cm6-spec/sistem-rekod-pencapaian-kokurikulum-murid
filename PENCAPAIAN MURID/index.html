@@ -43,7 +43,6 @@
         };
 
         // Pengesanan persekitaran (Preview vs Hosting Sendiri)
-        // Ini memastikan tiada ralat "permission" semasa mencuba di paparan preview ini.
         const isCanvasEnv = typeof __firebase_config !== 'undefined' && __firebase_config;
         const firebaseConfig = isCanvasEnv ? JSON.parse(__firebase_config) : myFirebaseConfig;
         
@@ -84,6 +83,7 @@
         // Senarai pilihan berdasarkan keperluan
         const KATEGORI_PILIHAN = ['Individu', 'Berpasukan', 'Individu dan Berpasukan'];
         const BIDANG_PILIHAN = ['Sukan', 'Ko-akademik', 'Digital', 'Unit Beruniform', 'Tidak berkaitan'];
+        const BIDANG_JAWATAN_PILIHAN = ['Kelab dan Persatuan', 'Sukan dan Permainan', 'Unit Beruniform', 'Lain-lain'];
         const PERINGKAT_PILIHAN = ['Sekolah', 'Daerah', 'Bahagian', 'Negeri', 'Kebangsaan', 'Antarabangsa'];
         const PENCAPAIAN_INDIVIDU_PILIHAN = ['Tiada', 'Johan', 'Naib Johan', 'Ke-3', 'Ke-4', 'Ke-5', 'Penyertaan'];
         const PENCAPAIAN_PASUKAN_PILIHAN = ['Tiada', 'Johan', 'Naib Johan', 'Ke-3', 'Penyertaan'];
@@ -607,6 +607,10 @@
 
                 if (sData[record.bidang] !== undefined) {
                   sData[record.bidang] += currentTotalScore; 
+                } else if (isJawatan) {
+                  if (record.bidang === 'Sukan dan Permainan') sData['Sukan'] += currentTotalScore;
+                  if (record.bidang === 'Kelab dan Persatuan') sData['Ko-akademik'] += currentTotalScore;
+                  if (record.bidang === 'Unit Beruniform') sData['Unit Beruniform'] += currentTotalScore;
                 }
               });
             });
@@ -815,9 +819,9 @@
             return (
               <form onSubmit={handleSave} className="space-y-6">
                 <div className="flex flex-col md:flex-row gap-4 mb-6">
-                  <button type="button" onClick={() => setFormData(prev => ({ ...prev, jenisBorang: 'Program' }))} className={`flex-1 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition ${isProgram ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}><Trophy className="w-5 h-5" /> Daftar Program / Pertandingan</button>
-                  <button type="button" onClick={() => setFormData(prev => ({ ...prev, jenisBorang: 'Anugerah' }))} className={`flex-1 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition ${isAnugerah ? 'bg-amber-600 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}><Award className="w-5 h-5" /> Daftar Anugerah Khas</button>
-                  <button type="button" onClick={() => setFormData(prev => ({ ...prev, jenisBorang: 'Jawatan' }))} className={`flex-1 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition ${isJawatan ? 'bg-emerald-600 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}><Star className="w-5 h-5" /> Daftar Jawatan</button>
+                  <button type="button" onClick={() => setFormData(prev => ({ ...prev, jenisBorang: 'Program', bidang: BIDANG_PILIHAN.includes(prev.bidang) ? prev.bidang : BIDANG_PILIHAN[0] }))} className={`flex-1 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition ${isProgram ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}><Trophy className="w-5 h-5" /> Daftar Program / Pertandingan</button>
+                  <button type="button" onClick={() => setFormData(prev => ({ ...prev, jenisBorang: 'Anugerah', bidang: BIDANG_PILIHAN.includes(prev.bidang) ? prev.bidang : BIDANG_PILIHAN[0] }))} className={`flex-1 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition ${isAnugerah ? 'bg-amber-600 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}><Award className="w-5 h-5" /> Daftar Anugerah Khas</button>
+                  <button type="button" onClick={() => setFormData(prev => ({ ...prev, jenisBorang: 'Jawatan', bidang: BIDANG_JAWATAN_PILIHAN.includes(prev.bidang) ? prev.bidang : BIDANG_JAWATAN_PILIHAN[0] }))} className={`flex-1 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition ${isJawatan ? 'bg-emerald-600 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}><Star className="w-5 h-5" /> Daftar Jawatan</button>
                 </div>
 
                 {isProgram ? (
@@ -955,7 +959,7 @@
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Bidang</label>
                             <select name="bidang" value={formData.bidang} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                              {BIDANG_PILIHAN.map(b => <option key={b} value={b}>{b}</option>)}
+                              {BIDANG_JAWATAN_PILIHAN.map(b => <option key={b} value={b}>{b}</option>)}
                             </select>
                           </div>
                           <div>
