@@ -1,1018 +1,957 @@
-<!DOCTYPE html>
-<html lang="ms">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Rekod Pencapaian Murid</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- React & ReactDOM -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- Babel untuk JSX -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <style>
-        @media print {
-            @page { margin: 1cm; size: A4 portrait; }
-            body { margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            /* Memastikan kandungan cetakan muat dalam 1 muka surat */
-            .print-1-page { max-height: 27cm; overflow: hidden; }
-        }
-    </style>
-</head>
-<body class="bg-slate-50">
-    <div id="root"></div>
+import React, { useState, useMemo, useEffect } from 'react';
+import { Plus, Trash2, Save, FileText, BarChart2, Award, Users, Trophy, Filter, Activity, Crown, List, UserCheck, Loader2, Edit, Printer, Star } from 'lucide-react';
 
-    <script type="text/babel" data-type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+// Senarai pilihan berdasarkan keperluan
+const KATEGORI_PILIHAN = ['Individu', 'Berpasukan', 'Individu dan Berpasukan'];
+const BIDANG_PILIHAN = ['Sukan', 'Ko-akademik', 'Digital', 'Unit Beruniform', 'Tidak berkaitan'];
+const BIDANG_JAWATAN_PILIHAN = ['Kelab dan Persatuan', 'Sukan dan Permainan', 'Unit Beruniform', 'Lain-lain'];
+const PERINGKAT_PILIHAN = ['Sekolah', 'Daerah', 'Bahagian', 'Negeri', 'Kebangsaan', 'Antarabangsa'];
+const PENCAPAIAN_INDIVIDU_PILIHAN = ['Tiada', 'Johan', 'Naib Johan', 'Ke-3', 'Ke-4', 'Ke-5', 'Penyertaan'];
+const PENCAPAIAN_PASUKAN_PILIHAN = ['Tiada', 'Johan', 'Naib Johan', 'Ke-3', 'Penyertaan'];
+const PERINGKAT_ANUGERAH_PILIHAN = ['Tiada', 'Sekolah', 'Daerah', 'Bahagian', 'Negeri', 'Kebangsaan', 'Antarabangsa'];
+const JAWATAN_PILIHAN = ['Tiada', 'Pengerusi / Ketua', 'Naib Pengerusi / Penolong', 'Setiausaha', 'Bendahari', 'Ahli Jawatankuasa (AJK)', 'Ahli Aktif', 'Ketua Pengawas', 'Penolong Ketua Pengawas', 'Pengawas', 'Pengawas Pusat Sumber', 'Pembimbing Rakan Sebaya'];
 
-        const { useState, useMemo, useEffect } = React;
+// Senarai Guru
+const SENARAI_GURU = [
+  "AIDA MASTURINA BINTI HAMKA", "AIFA NUR BESTARI BINTI RADUAN", "AZIZ BIN TAHIR",
+  "BRYAN ANAK CONSTANT", "EIFILISIA AMBER ANAK MERVIN", "FAZRI BIN BAKERI",
+  "HAIROL BIN ISMAIL", "HILWA HAYATI BINTI MOHAMAD AJALAN", "JACQUELINE TIONG HOE DING",
+  "JERIAH ANAK SIMON", "JIMMY ANAK PETER", "KHAIRI BIN SAHARI",
+  "LING MEE CHOO", "MARY JANE AMOI UMPANG ANAK DANIEL", "MOHAMAD ABIDIN BIN SIPEK",
+  "MOHD RAFEEQ BIN SULAIMAN", "MUHAMMAD ZULHUSAINI BIN ABDUL WAHAB", "NUR AZLIN BINTI NORIZAN",
+  "NUR HIDAYU BINTI YUSOP", "NURUL HUDA BTE MOHD IHWAN", "SABARIAH BINTI SOLHI",
+  "SALIHIN BIN AHMAD", "SYAEEZA LIANA BINTI RAMLI", "TENG RU YUN",
+  "TING HUA EE", "TING YU YONG", "WONG PICK KING", "ZEPRINA ANAK BENIK"
+].sort();
 
-        // --- FIREBASE CONFIGURATION (Dwi-Persekitaran) ---
-        // Konfigurasi peribadi anda:
-        const myFirebaseConfig = {
-          apiKey: "AIzaSyCJj6xYrtb5ceqe_5Nq4ikGACVVYL4Q-sc",
-          authDomain: "rekod-kk-murid.firebaseapp.com",
-          projectId: "rekod-kk-murid",
-          storageBucket: "rekod-kk-murid.firebasestorage.app",
-          messagingSenderId: "738134533461",
-          appId: "1:738134533461:web:7dd9b41f5a5f406732bbdc",
-          measurementId: "G-YB9V1ZYSEN"
-        };
+// Sistem Markah/Skor Hierarki Carta Spider & Penentuan Tokoh
+const SKOR_PERINGKAT = { 'Antarabangsa': 60, 'Kebangsaan': 50, 'Negeri': 40, 'Bahagian': 30, 'Daerah': 20, 'Sekolah': 10 };
+const SKOR_PENCAPAIAN = { 'Johan': 6, 'Naib Johan': 5, 'Ke-3': 4, 'Ke-4': 3, 'Ke-5': 2, 'Penyertaan': 1, 'Tiada': 0 };
+const SKOR_JAWATAN = { 'Pengerusi / Ketua': 10, 'Naib Pengerusi / Penolong': 8, 'Setiausaha': 6, 'Bendahari': 6, 'Ahli Jawatankuasa (AJK)': 4, 'Ahli Aktif': 2, 'Ketua Pengawas': 10, 'Penolong Ketua Pengawas': 8, 'Pengawas': 6, 'Pengawas Pusat Sumber': 6, 'Pembimbing Rakan Sebaya': 6, 'Tiada': 0 };
 
-        // Pengesanan persekitaran (Preview vs Hosting Sendiri)
-        const isCanvasEnv = typeof __firebase_config !== 'undefined' && __firebase_config;
-        const firebaseConfig = isCanvasEnv ? JSON.parse(__firebase_config) : myFirebaseConfig;
+const calculateScore = (peringkat, pencapaian) => {
+  if (!pencapaian || pencapaian === 'Tiada') return 0;
+  return (SKOR_PERINGKAT[peringkat] || 0) + (SKOR_PENCAPAIAN[pencapaian] || 0);
+};
+
+// Pautan Google Sheets secara Live 
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRN7al7Ea32RemioaD3P_32WSh30ycyCuFC4jJktFWBwTENsFI8qdZ9fX04-89xEvOfRu4mvPXZd01G/pub?output=csv';
+const GURU_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSXtz4RR-cAtr7c7FFSyA0tJ6ZR4IFIzOQnyJZd5cGmR04dF8wOKUiFDqSrNBI1qmGhWSpEsESwAhON/pub?output=csv';
+
+// Pautan Analisis Kehadiran "EKOKU LIVE" (Kosongkan jika mahu guna Data Simulasi dahulu)
+const KEHADIRAN_CSV_URL = ''; 
+
+const DEFAULT_KELAS = [
+  'PRASEKOLAH', '1BD', '1BP DELIMA', '1BP ZAMRUD', 
+  '2BP DELIMA', '2BP ZAMRUD', '3BD', '3BP', 
+  '4BD', '4BL', '4BP', '5BD', '5BP', '6BD', '6BP'
+];
+
+// Komponen Carta Spider (Radar Chart) SVG
+const SpiderChart = ({ data }) => {
+  const maxVal = Math.max(100, ...Object.values(data)) * 1.15; 
+  const getR = (val) => (val / maxVal) * 80; 
+
+  const SukanR = getR(data['Sukan'] || 0);
+  const KoakademikR = getR(data['Ko-akademik'] || 0);
+  const DigitalR = getR(data['Digital'] || 0);
+  const UnitR = getR(data['Unit Beruniform'] || 0);
+
+  const pts = `100,${100 - SukanR} ${100 + KoakademikR},100 100,${100 + DigitalR} ${100 - UnitR},100`;
+
+  return (
+    <div className="w-full max-w-[350px] print:max-w-[150px] mx-auto bg-white p-4 print:p-0 rounded-xl border border-gray-100 shadow-sm print:border-none print:shadow-none flex flex-col items-center">
+      <div className="flex items-center gap-2 mb-2 text-indigo-700 w-full border-b pb-2 print:border-black print:pb-0.5 print:mb-0.5 print:justify-center">
+        <Activity className="w-5 h-5 print:hidden" />
+        <h3 className="font-semibold text-sm print:text-[9px] print:text-black">Visualisasi Markah</h3>
+      </div>
+      <svg viewBox="-30 -30 260 260" className="w-full h-auto overflow-visible mt-2 print:mt-1">
+        {[20, 40, 60, 80].map(r => (
+          <polygon key={r} points={`100,${100-r} ${100+r},100 100,${100+r} ${100-r},100`} fill="none" stroke="#e2e8f0" strokeWidth="1" className="print:stroke-gray-300" />
+        ))}
+        <line x1="100" y1="20" x2="100" y2="180" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="3 3" className="print:stroke-gray-400" />
+        <line x1="20" y1="100" x2="180" y2="100" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="3 3" className="print:stroke-gray-400" />
+
+        <polygon points={pts} fill="rgba(79, 70, 229, 0.4)" stroke="#4f46e5" strokeWidth="2" strokeLinejoin="round" className="print:stroke-black print:fill-gray-300" />
         
-        // Tetapkan ID Aplikasi dengan betul untuk laluan (path) Firestore
-        const activeAppId = isCanvasEnv && typeof __app_id !== 'undefined' ? __app_id : "rekod-kk-murid";
+        <circle cx="100" cy={100 - SukanR} r="3" fill="#4338ca" className="print:fill-black" />
+        <circle cx={100 + KoakademikR} cy="100" r="3" fill="#4338ca" className="print:fill-black" />
+        <circle cx="100" cy={100 + DigitalR} r="3" fill="#4338ca" className="print:fill-black" />
+        <circle cx={100 - UnitR} cy="100" r="3" fill="#4338ca" className="print:fill-black" />
 
-        // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+        <text x="100" y="5" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black print:text-[8px]">Sukan ({data['Sukan']})</text>
+        <text x="210" y="104" textAnchor="start" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black print:text-[8px]">Ko-akademik ({data['Ko-akademik']})</text>
+        <text x="100" y="200" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black print:text-[8px]">Digital ({data['Digital']})</text>
+        <text x="-10" y="104" textAnchor="end" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black print:text-[8px]">Beruniform ({data['Unit Beruniform']})</text>
+      </svg>
+    </div>
+  );
+};
 
-        // --- KOMPONEN IKON TERBINA DALAM ---
-        const Icon = ({ children, className = "w-5 h-5", title }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-                {title && <title>{title}</title>}
-                {children}
-            </svg>
-        );
+export default function App() {
+  const [activeTab, setActiveTab] = useState('form'); 
+  const [summaryView, setSummaryView] = useState('murid'); 
+  const [records, setRecords] = useState([]);
+  const [user, setUser] = useState(null);
+  
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const [printMode, setPrintMode] = useState('umum'); 
+  
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4000);
+  };
 
-        const Plus = ({className}) => <Icon className={className}><path d="M5 12h14"/><path d="M12 5v14"/></Icon>;
-        const Trash2 = ({className}) => <Icon className={className}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></Icon>;
-        const Save = ({className}) => <Icon className={className}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></Icon>;
-        const FileText = ({className}) => <Icon className={className}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></Icon>;
-        const BarChart2 = ({className}) => <Icon className={className}><line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/></Icon>;
-        const Award = ({className}) => <Icon className={className}><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></Icon>;
-        const Users = ({className}) => <Icon className={className}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></Icon>;
-        const Trophy = ({className}) => <Icon className={className}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7c0 6 3 10 6 10s6-4 6-10V2z"/></Icon>;
-        const Filter = ({className}) => <Icon className={className}><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></Icon>;
-        const Activity = ({className}) => <Icon className={className}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></Icon>;
-        const Crown = ({className}) => <Icon className={className}><path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/></Icon>;
-        const ListIcon = ({className}) => <Icon className={className}><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></Icon>;
-        const UserCheck = ({className}) => <Icon className={className}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></Icon>;
-        const Loader2 = ({className}) => <Icon className={className}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></Icon>;
-        const Edit = ({className}) => <Icon className={className}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></Icon>;
-        const Printer = ({className}) => <Icon className={className}><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></Icon>;
-        const Star = ({className}) => <Icon className={className}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></Icon>;
+  const [editingRecordId, setEditingRecordId] = useState(null);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [masterData, setMasterData] = useState([]);
+  const [masterGuru, setMasterGuru] = useState([]);
+  const [masterKehadiran, setMasterKehadiran] = useState([]);
 
-        // Senarai pilihan berdasarkan keperluan
-        const KATEGORI_PILIHAN = ['Individu', 'Berpasukan', 'Individu dan Berpasukan'];
-        const BIDANG_PILIHAN = ['Sukan', 'Ko-akademik', 'Digital', 'Unit Beruniform', 'Tidak berkaitan'];
-        const BIDANG_JAWATAN_PILIHAN = ['Kelab dan Persatuan', 'Sukan dan Permainan', 'Unit Beruniform', 'Lain-lain'];
-        const PERINGKAT_PILIHAN = ['Sekolah', 'Daerah', 'Bahagian', 'Negeri', 'Kebangsaan', 'Antarabangsa'];
-        const PENCAPAIAN_INDIVIDU_PILIHAN = ['Tiada', 'Johan', 'Naib Johan', 'Ke-3', 'Ke-4', 'Ke-5', 'Penyertaan'];
-        const PENCAPAIAN_PASUKAN_PILIHAN = ['Tiada', 'Johan', 'Naib Johan', 'Ke-3', 'Penyertaan'];
-        const PERINGKAT_ANUGERAH_PILIHAN = ['Tiada', 'Sekolah', 'Daerah', 'Bahagian', 'Negeri', 'Kebangsaan', 'Antarabangsa'];
-        const JAWATAN_PILIHAN = ['Tiada', 'Pengerusi / Ketua', 'Naib Pengerusi / Penolong', 'Setiausaha', 'Bendahari', 'Ahli Jawatankuasa (AJK)', 'Ahli Aktif', 'Ketua Pengawas', 'Penolong Ketua Pengawas', 'Pengawas', 'Pengawas Pusat Sumber', 'Pembimbing Rakan Sebaya'];
+  // --- FIREBASE MOCK UNTUK APLIKASI PREVIEW ---
+  useEffect(() => {
+    setUser({ uid: 'mock-user-123' });
+    const localData = localStorage.getItem('mock_records');
+    if (localData) {
+        setRecords(JSON.parse(localData));
+    }
+  }, []);
 
-        // Sistem Markah/Skor Hierarki Carta Spider & Penentuan Tokoh
-        const SKOR_PERINGKAT = { 'Antarabangsa': 60, 'Kebangsaan': 50, 'Negeri': 40, 'Bahagian': 30, 'Daerah': 20, 'Sekolah': 10 };
-        const SKOR_PENCAPAIAN = { 'Johan': 6, 'Naib Johan': 5, 'Ke-3': 4, 'Ke-4': 3, 'Ke-5': 2, 'Penyertaan': 1, 'Tiada': 0 };
-        const SKOR_JAWATAN = { 'Pengerusi / Ketua': 10, 'Naib Pengerusi / Penolong': 8, 'Setiausaha': 6, 'Bendahari': 6, 'Ahli Jawatankuasa (AJK)': 4, 'Ahli Aktif': 2, 'Ketua Pengawas': 10, 'Penolong Ketua Pengawas': 8, 'Pengawas': 6, 'Pengawas Pusat Sumber': 6, 'Pembimbing Rakan Sebaya': 6, 'Tiada': 0 };
-
-        const calculateScore = (peringkat, pencapaian) => {
-          if (!pencapaian || pencapaian === 'Tiada') return 0;
-          return (SKOR_PERINGKAT[peringkat] || 0) + (SKOR_PENCAPAIAN[pencapaian] || 0);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await fetch(CSV_URL);
+        const csvText = await response.text();
+        
+        const parseCSV = (str) => {
+            const arr = [];
+            let quote = false;
+            let row = 0, col = 0;
+            for (let c = 0; c < str.length; c++) {
+                let cc = str[c], nc = str[c+1];
+                arr[row] = arr[row] || [];
+                arr[row][col] = arr[row][col] || '';
+                if (cc === '"' && quote && nc === '"') { arr[row][col] += cc; ++c; continue; }
+                if (cc === '"') { quote = !quote; continue; }
+                if (cc === ',' && !quote) { ++col; continue; }
+                if (cc === '\r' && nc === '\n' && !quote) { ++row; col = 0; ++c; continue; }
+                if (cc === '\n' && !quote) { ++row; col = 0; continue; }
+                if (cc === '\r' && !quote) { ++row; col = 0; continue; }
+                arr[row][col] += cc;
+            }
+            return arr;
         };
 
-        // Pautan Google Sheets secara Live 
-        const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRN7al7Ea32RemioaD3P_32WSh30ycyCuFC4jJktFWBwTENsFI8qdZ9fX04-89xEvOfRu4mvPXZd01G/pub?output=csv';
-        const GURU_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSXtz4RR-cAtr7c7FFSyA0tJ6ZR4IFIzOQnyJZd5cGmR04dF8wOKUiFDqSrNBI1qmGhWSpEsESwAhON/pub?output=csv';
-
-        const DEFAULT_KELAS = [
-          'PRASEKOLAH', '1BD', '1BP DELIMA', '1BP ZAMRUD', 
-          '2BP DELIMA', '2BP ZAMRUD', '3BD', '3BP', 
-          '4BD', '4BL', '4BP', '5BD', '5BP', '6BD', '6BP'
-        ];
-
-        // Komponen Carta Spider (Radar Chart) SVG
-        const SpiderChart = ({ data }) => {
-          const maxVal = Math.max(100, ...Object.values(data)) * 1.15; 
-          const getR = (val) => (val / maxVal) * 80; 
-
-          const SukanR = getR(data['Sukan'] || 0);
-          const KoakademikR = getR(data['Ko-akademik'] || 0);
-          const DigitalR = getR(data['Digital'] || 0);
-          const UnitR = getR(data['Unit Beruniform'] || 0);
-
-          const pts = `100,${100 - SukanR} ${100 + KoakademikR},100 100,${100 + DigitalR} ${100 - UnitR},100`;
-
-          return (
-            <div className="w-full max-w-[350px] print:max-w-[150px] mx-auto bg-white p-4 print:p-0 rounded-xl border border-gray-100 shadow-sm print:border-none print:shadow-none flex flex-col items-center">
-              <div className="flex items-center gap-2 mb-2 text-indigo-700 w-full border-b pb-2 print:border-black print:pb-0.5 print:mb-0.5 print:justify-center">
-                <Activity className="w-5 h-5 print:hidden" />
-                <h3 className="font-semibold text-sm print:text-[9px] print:text-black">Visualisasi Markah</h3>
-              </div>
-              <svg viewBox="-30 -30 260 260" className="w-full h-auto overflow-visible mt-2 print:mt-1">
-                {[20, 40, 60, 80].map(r => (
-                  <polygon key={r} points={`100,${100-r} ${100+r},100 100,${100+r} ${100-r},100`} fill="none" stroke="#e2e8f0" strokeWidth="1" className="print:stroke-gray-300" />
-                ))}
-                <line x1="100" y1="20" x2="100" y2="180" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="3 3" className="print:stroke-gray-400" />
-                <line x1="20" y1="100" x2="180" y2="100" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="3 3" className="print:stroke-gray-400" />
-
-                <polygon points={pts} fill="rgba(79, 70, 229, 0.4)" stroke="#4f46e5" strokeWidth="2" strokeLinejoin="round" className="print:stroke-black print:fill-gray-300" />
-                
-                <circle cx="100" cy={100 - SukanR} r="3" fill="#4338ca" className="print:fill-black" />
-                <circle cx={100 + KoakademikR} cy="100" r="3" fill="#4338ca" className="print:fill-black" />
-                <circle cx="100" cy={100 + DigitalR} r="3" fill="#4338ca" className="print:fill-black" />
-                <circle cx={100 - UnitR} cy="100" r="3" fill="#4338ca" className="print:fill-black" />
-
-                <text x="100" y="5" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black print:text-[8px]">Sukan ({data['Sukan']})</text>
-                <text x="210" y="104" textAnchor="start" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black print:text-[8px]">Ko-akademik ({data['Ko-akademik']})</text>
-                <text x="100" y="200" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black print:text-[8px]">Digital ({data['Digital']})</text>
-                <text x="-10" y="104" textAnchor="end" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black print:text-[8px]">Beruniform ({data['Unit Beruniform']})</text>
-              </svg>
-            </div>
-          );
-        };
-
-        function App() {
-          const [activeTab, setActiveTab] = useState('form'); 
-          const [summaryView, setSummaryView] = useState('murid'); 
-          const [records, setRecords] = useState([]);
-          const [user, setUser] = useState(null);
-          
-          const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-          const [printMode, setPrintMode] = useState('umum'); 
-          
-          const showToast = (message, type = 'success') => {
-            setToast({ show: true, message, type });
-            setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4000);
-          };
-
-          const [editingRecordId, setEditingRecordId] = useState(null);
-          const [isLoadingData, setIsLoadingData] = useState(true);
-          const [masterData, setMasterData] = useState([]);
-          const [masterGuru, setMasterGuru] = useState([]);
-
-          // --- FIREBASE AUTH & FIRESTORE SYNC ---
-          useEffect(() => {
-            const initAuth = async () => {
-              try {
-                if (isCanvasEnv && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                  try {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                  } catch (e) {
-                    await signInAnonymously(auth);
-                  }
-                } else {
-                  await signInAnonymously(auth);
-                }
-              } catch (error) {
-                console.error("Firebase Auth Error:", error);
-              }
-            };
-            initAuth();
-            const unsubscribe = onAuthStateChanged(auth, setUser);
-            return () => unsubscribe();
-          }, []);
-
-          useEffect(() => {
-            if (!user) return;
-            const recordsRef = collection(db, 'artifacts', activeAppId, 'public', 'data', 'records');
-            const unsubscribe = onSnapshot(recordsRef, (snapshot) => {
-              const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-              setRecords(data);
-            }, (error) => {
-              console.error("Firestore Error:", error);
-              if (error.message && error.message.toLowerCase().includes("permission")) {
-                  showToast("Tiada kebenaran Firebase. Sila semak Firestore Security Rules anda jika host sendiri.", "error");
-              }
-            });
-            return () => unsubscribe();
-          }, [user]);
-
-          useEffect(() => {
-            const fetchData = async () => {
-              try {
-                const response = await fetch(CSV_URL);
-                const csvText = await response.text();
-                
-                const parseCSV = (str) => {
-                    const arr = [];
-                    let quote = false;
-                    let row = 0, col = 0;
-                    for (let c = 0; c < str.length; c++) {
-                        let cc = str[c], nc = str[c+1];
-                        arr[row] = arr[row] || [];
-                        arr[row][col] = arr[row][col] || '';
-                        if (cc === '"' && quote && nc === '"') { arr[row][col] += cc; ++c; continue; }
-                        if (cc === '"') { quote = !quote; continue; }
-                        if (cc === ',' && !quote) { ++col; continue; }
-                        if (cc === '\r' && nc === '\n' && !quote) { ++row; col = 0; ++c; continue; }
-                        if (cc === '\n' && !quote) { ++row; col = 0; continue; }
-                        if (cc === '\r' && !quote) { ++row; col = 0; continue; }
-                        arr[row][col] += cc;
-                    }
-                    return arr;
-                };
-
-                const rows = parseCSV(csvText);
-                let headers = [];
-                let startIndex = -1;
-                
-                for(let i=0; i<Math.min(5, rows.length); i++) {
-                    if(rows[i] && rows[i].some(h => h && h.toUpperCase().includes('NAMA'))) {
-                        headers = rows[i].map(h => h ? h.toUpperCase().trim() : '');
-                        startIndex = i;
-                        break;
-                    }
-                }
-
-                if (startIndex !== -1) {
-                  const nameIdx = headers.findIndex(h => h === 'NAMA MURID' || h === 'NAMA');
-                  const classIdx = headers.findIndex(h => h === 'KELAS' || h === 'NAMA KELAS');
-                  const genderIdx = headers.findIndex(h => h === 'JANTINA');
-
-                  const parsedData = [];
-                  for (let i = startIndex + 1; i < rows.length; i++) {
-                    const row = rows[i];
-                    if (row && row[nameIdx] && row[nameIdx].trim()) {
-                      const jantinaRaw = genderIdx > -1 && row[genderIdx] ? row[genderIdx].trim().toUpperCase() : '';
-                      parsedData.push({
-                        nama: row[nameIdx].trim().toUpperCase(),
-                        kelas: classIdx > -1 && row[classIdx] ? row[classIdx].trim() : 'TIADA KELAS',
-                        jantina: jantinaRaw === 'LELAKI' ? 'Lelaki' : (jantinaRaw === 'PEREMPUAN' ? 'Perempuan' : 'Tidak Diketahui')
-                      });
-                    }
-                  }
-                  setMasterData(parsedData);
-                }
-
-                const responseGuru = await fetch(GURU_CSV_URL);
-                const csvTextGuru = await responseGuru.text();
-                const rowsGuru = parseCSV(csvTextGuru);
-                
-                let headersGuru = [];
-                let startIndexGuru = -1;
-                
-                for(let i=0; i<Math.min(5, rowsGuru.length); i++) {
-                    if(rowsGuru[i] && rowsGuru[i].some(h => h && h.toUpperCase().includes('NAMA'))) {
-                        headersGuru = rowsGuru[i].map(h => h ? h.toUpperCase().trim() : '');
-                        startIndexGuru = i;
-                        break;
-                    }
-                }
-
-                let nameIdxGuru = 0;
-                if (startIndexGuru !== -1) {
-                    nameIdxGuru = headersGuru.findIndex(h => h.includes('NAMA'));
-                    if (nameIdxGuru === -1) nameIdxGuru = 0;
-                }
-
-                const parsedGuru = [];
-                const startLoopGuru = startIndexGuru !== -1 ? startIndexGuru + 1 : 0;
-                for (let i = startLoopGuru; i < rowsGuru.length; i++) {
-                    const row = rowsGuru[i];
-                    if (row && row[nameIdxGuru] && row[nameIdxGuru].trim()) {
-                        const namaGuru = row[nameIdxGuru].trim().toUpperCase();
-                        if (namaGuru !== 'NAMA' && !namaGuru.includes('NAMA GURU')) {
-                            parsedGuru.push(namaGuru);
-                        }
-                    }
-                }
-                setMasterGuru(Array.from(new Set(parsedGuru)).sort());
-
-              } catch (error) {
-                console.error("Gagal memuat turun data CSV:", error);
-              } finally {
-                setIsLoadingData(false);
-              }
-            };
-
-            fetchData();
-          }, []);
-
-          const { dataMurid, jantinaMurid, senaraiKelas } = useMemo(() => {
-            const dKelas = {};
-            const dJantina = {};
-            const kSet = new Set(DEFAULT_KELAS);
-
-            DEFAULT_KELAS.forEach(k => dKelas[k] = []);
-
-            masterData.forEach(murid => {
-               kSet.add(murid.kelas);
-               if (!dKelas[murid.kelas]) dKelas[murid.kelas] = [];
-               if (!dKelas[murid.kelas].includes(murid.nama)) {
-                   dKelas[murid.kelas].push(murid.nama);
-               }
-               dJantina[murid.nama] = murid.jantina;
-            });
-
-            Object.keys(dKelas).forEach(k => dKelas[k].sort());
-            const finalKelas = Array.from(kSet).sort();
-
-            return { dataMurid: dKelas, jantinaMurid: dJantina, senaraiKelas: finalKelas };
-          }, [masterData]);
-
-          const getJantina = (nama) => {
-            if (!nama) return 'Tidak Diketahui';
-            return jantinaMurid[nama.trim().toUpperCase()] || 'Tidak Diketahui'; 
-          };
-
-          const formatTarikh = (mula, akhir) => {
-            if (!akhir || mula === akhir) return mula;
-            return `${mula} hingga ${akhir}`;
-          };
-
-          const initialFormState = {
-            jenisBorang: 'Program',
-            namaProgram: '',
-            namaAnugerah: '',
-            guruList: [{ id: Date.now(), nama: '', isManual: false }],
-            tarikhMula: '',
-            tarikhAkhir: '',
-            kategori: KATEGORI_PILIHAN[0],
-            bidang: BIDANG_PILIHAN[0],
-            peringkat: PERINGKAT_PILIHAN[0],
-            peringkatAnugerah: PERINGKAT_PILIHAN[0],
-            muridList: [{ id: Date.now(), nama: '', kelas: '', jantina: '', pencapaianIndividu: 'Tiada', pencapaianPasukan: 'Tiada', jawatan: 'Tiada', isManual: false }]
-          };
-
-          const [formData, setFormData] = useState(initialFormState);
-
-          const [filterNama, setFilterNama] = useState('Semua');
-          const [filterPeringkat, setFilterPeringkat] = useState('Keseluruhan');
-          const [filterBidang, setFilterBidang] = useState('Semua');
-          const [filterGuru, setFilterGuru] = useState('Semua');
-          
-          // --- PENAPIS BAHARU ---
-          const [filterPencapaian, setFilterPencapaian] = useState('Semua');
-          const [filterAnugerah, setFilterAnugerah] = useState('Semua');
-          const [filterJawatan, setFilterJawatan] = useState('Semua');
-          const [filterKelas, setFilterKelas] = useState('Semua');
-
-          const uniqueNames = useMemo(() => {
-            const names = new Set();
-            records.forEach(r => r.muridList.forEach(m => {
-              if (m.nama.trim()) {
-                // Saring senarai nama berdasarkan pilihan kelas di bahagian Rumusan
-                if (filterKelas === 'Semua' || m.kelas === filterKelas) {
-                  names.add(m.nama.toUpperCase());
-                }
-              }
-            }));
-            return Array.from(names).sort();
-          }, [records, filterKelas]);
-
-          const handleInputChange = (e) => {
-            const { name, value } = e.target;
-            setFormData(prev => ({ ...prev, [name]: value }));
-          };
-
-          const handleGuruChange = (id, field, value) => {
-            setFormData(prev => ({
-              ...prev,
-              guruList: prev.guruList.map(guru => guru.id === id ? { ...guru, [field]: value } : guru)
-            }));
-          };
-
-          const addGuru = () => {
-            setFormData(prev => ({
-              ...prev,
-              guruList: [...prev.guruList, { id: Date.now(), nama: '', isManual: false }]
-            }));
-          };
-
-          const removeGuru = (id) => {
-            setFormData(prev => ({
-              ...prev,
-              guruList: prev.guruList.filter(guru => guru.id !== id)
-            }));
-          };
-
-          const handleKelasChange = (id, newKelas) => {
-            setFormData(prev => ({
-              ...prev,
-              muridList: prev.muridList.map(murid => murid.id === id ? { ...murid, kelas: newKelas, nama: '', jantina: '', isManual: false } : murid)
-            }));
-          };
-
-          const handleMuridChange = (id, field, value) => {
-            setFormData(prev => ({
-              ...prev,
-              muridList: prev.muridList.map(murid => murid.id === id ? { ...murid, [field]: value } : murid)
-            }));
-          };
-
-          const handleNamaWithJantina = (id, newNama) => {
-            setFormData(prev => ({
-              ...prev,
-              muridList: prev.muridList.map(murid => {
-                if (murid.id === id) {
-                   const mappedJantina = getJantina(newNama);
-                   return { ...murid, nama: newNama, jantina: mappedJantina !== 'Tidak Diketahui' ? mappedJantina : '', isManual: false };
-                }
-                return murid;
-              })
-            }));
-          };
-
-          const addMurid = () => {
-            setFormData(prev => ({
-              ...prev,
-              muridList: [...prev.muridList, { id: Date.now(), nama: '', kelas: '', jantina: '', pencapaianIndividu: 'Tiada', pencapaianPasukan: 'Tiada', jawatan: 'Tiada', isManual: false }]
-            }));
-          };
-
-          const removeMurid = (id) => {
-            setFormData(prev => ({
-              ...prev,
-              muridList: prev.muridList.filter(murid => murid.id !== id)
-            }));
-          };
-
-          const handleEdit = (record) => {
-            setFormData({
-              ...initialFormState,
-              ...record,
-              jenisBorang: record.jenisBorang || 'Program'
-            });
-            setEditingRecordId(record.id);
-            setActiveTab('form');
-          };
-
-          const cancelEdit = () => {
-            setEditingRecordId(null);
-            setFormData(initialFormState);
-          };
-
-          const handleDelete = async (id) => {
-            if (!user) return;
-            try {
-              const docRef = doc(db, 'artifacts', activeAppId, 'public', 'data', 'records', id);
-              await deleteDoc(docRef);
-              if (editingRecordId === id) cancelEdit();
-              showToast('Rekod telah berjaya dipadam.', 'success');
-            } catch (error) {
-              console.error("Ralat memadam rekod:", error);
-              if (error.message && error.message.toLowerCase().includes("permission")) {
-                  showToast('Tiada kebenaran Firebase. Sila kemas kini Firestore Rules anda.', 'error');
-              } else {
-                  showToast('Ralat memadam rekod.', 'error');
-              }
+        const rows = parseCSV(csvText);
+        let headers = [];
+        let startIndex = -1;
+        
+        for(let i=0; i<Math.min(5, rows.length); i++) {
+            if(rows[i] && rows[i].some(h => h && h.toUpperCase().includes('NAMA'))) {
+                headers = rows[i].map(h => h ? h.toUpperCase().trim() : '');
+                startIndex = i;
+                break;
             }
-          };
+        }
 
-          const handleSave = async (e) => {
-            e.preventDefault();
-            if (!user) {
-              showToast('Pangkalan data sedang dimuatkan, sila cuba sebentar lagi.', 'error');
-              return;
-            }
+        if (startIndex !== -1) {
+          const nameIdx = headers.findIndex(h => h === 'NAMA MURID' || h === 'NAMA');
+          const classIdx = headers.findIndex(h => h === 'KELAS' || h === 'NAMA KELAS');
+          const genderIdx = headers.findIndex(h => h === 'JANTINA');
 
-            const isProgram = formData.jenisBorang === 'Program';
-            const isAnugerah = formData.jenisBorang === 'Anugerah';
-            const isJawatan = formData.jenisBorang === 'Jawatan';
-
-            if (isProgram || isJawatan) {
-                if (!formData.namaProgram || !formData.tarikhMula || !formData.tarikhAkhir) {
-                  showToast(`Sila isikan maklumat wajib (Nama ${isJawatan ? 'Kelab/Sukan' : 'Program'}, Tarikh).`, 'error');
-                  return;
-                }
-            } else if (isAnugerah) {
-                if (!formData.namaAnugerah || !formData.tarikhMula || !formData.tarikhAkhir) {
-                  showToast('Sila isikan maklumat wajib (Nama Anugerah, Tarikh).', 'error');
-                  return;
-                }
-            }
-
-            const validMurid = formData.muridList.filter(m => m.nama.trim() !== '');
-            if (validMurid.length === 0) {
-              showToast('Sila masukkan sekurang-kurangnya nama seorang murid.', 'error');
-              return;
-            }
-            const missingJantina = validMurid.find(m => m.jantina === '');
-            if (missingJantina) {
-              showToast(`Sila pilih Jantina untuk murid bernama ${missingJantina.nama}`, 'error');
-              return;
-            }
-
-            const validGuru = isProgram ? formData.guruList.filter(g => g.nama.trim() !== '') : [];
-            
-            if (isProgram && validGuru.length === 0) {
-               showToast('Sila masukkan sekurang-kurangnya nama seorang guru pengiring.', 'error');
-               return;
-            }
-
-            // Bersihkan data
-            const recordData = JSON.parse(JSON.stringify({ 
-                ...formData, 
-                guruList: validGuru, 
-                muridList: validMurid,
-                timestamp: Date.now()
-            }));
-            
-            const recordsRef = collection(db, 'artifacts', activeAppId, 'public', 'data', 'records');
-
-            try {
-              if (editingRecordId) {
-                const docRef = doc(db, 'artifacts', activeAppId, 'public', 'data', 'records', editingRecordId);
-                await updateDoc(docRef, recordData);
-                setEditingRecordId(null);
-                showToast('Data berjaya dikemaskini!', 'success');
-              } else {
-                await addDoc(recordsRef, recordData);
-                showToast('Data berjaya disimpan!', 'success');
-              }
-              setFormData(initialFormState);
-            } catch (error) {
-              console.error("Ralat menyimpan rekod:", error);
-              if (error.message && error.message.toLowerCase().includes("permission")) {
-                  showToast('Tiada kebenaran Firebase. Sila kemas kini tetapan "Rules" di konsol Firebase anda.', 'error');
-              } else {
-                  showToast('Ralat menyimpan rekod ke pangkalan data.', 'error');
-              }
-            }
-          };
-
-          const { summaryData, spiderData, tokohLelaki, tokohPerempuan } = useMemo(() => {
-            const summaryMap = {};
-            const sData = { 'Sukan': 0, 'Ko-akademik': 0, 'Digital': 0, 'Unit Beruniform': 0 };
-            const skorKeseluruhanMurid = {}; 
-
-            records.forEach(record => {
-              const isProgram = record.jenisBorang === 'Program' || !record.jenisBorang;
-              const isAnugerah = record.jenisBorang === 'Anugerah';
-              const isJawatan = record.jenisBorang === 'Jawatan';
-
-              record.muridList.forEach(murid => {
-                const muridNama = murid.nama.toUpperCase();
-                let currentTotalScore = 0;
-                
-                if (isProgram) {
-                    const isIndividuAllowed = ['Individu', 'Individu dan Berpasukan'].includes(record.kategori);
-                    const isPasukanAllowed = ['Berpasukan', 'Individu dan Berpasukan'].includes(record.kategori);
-                    
-                    if (isIndividuAllowed) currentTotalScore += calculateScore(record.peringkat, murid.pencapaianIndividu);
-                    if (isPasukanAllowed) currentTotalScore += calculateScore(record.peringkat, murid.pencapaianPasukan);
-                    
-                } else if (isAnugerah) {
-                    currentTotalScore += (SKOR_PERINGKAT[record.peringkatAnugerah] || 0);
-                } else if (isJawatan) {
-                    currentTotalScore += (SKOR_PERINGKAT[record.peringkat] || 0) + (SKOR_JAWATAN[murid.jawatan] || 0);
-                }
-                
-                if (!skorKeseluruhanMurid[muridNama]) {
-                     skorKeseluruhanMurid[muridNama] = { nama: muridNama, jantina: murid.jantina, kelas: murid.kelas, totalSkor: 0 };
-                }
-                skorKeseluruhanMurid[muridNama].totalSkor += currentTotalScore;
-
-                const displayPeringkat = isAnugerah ? record.peringkatAnugerah : record.peringkat;
-
-                // Penapis Baharu: Kelas
-                if (filterKelas !== 'Semua' && murid.kelas !== filterKelas) return;
-                
-                if (filterPeringkat !== 'Keseluruhan' && displayPeringkat !== filterPeringkat) return;
-                if (filterBidang !== 'Semua' && record.bidang !== filterBidang) return;
-                if (filterNama !== 'Semua' && muridNama !== filterNama) return;
-
-                // Penapis Baharu: Pencapaian
-                if (filterPencapaian !== 'Semua') {
-                    if (!isProgram) return; // Hanya borang program ada pencapaian Johan/Naib Johan dll
-                    if (murid.pencapaianIndividu !== filterPencapaian && murid.pencapaianPasukan !== filterPencapaian) return;
-                }
-
-                // Penapis Baharu: Anugerah Khas
-                if (filterAnugerah !== 'Semua') {
-                    const hasAnugerah = isAnugerah || (isProgram && murid.anugerah && murid.anugerah.trim() !== '');
-                    if (filterAnugerah === 'Ada Anugerah' && !hasAnugerah) return;
-                    if (filterAnugerah === 'Tiada Anugerah' && hasAnugerah) return;
-                }
-
-                // Penapis Baharu: Jawatan
-                if (filterJawatan !== 'Semua') {
-                    if (!isJawatan) return; // Hanya borang jawatan ada spesifikasi jawatan
-                    if (murid.jawatan !== filterJawatan) return;
-                }
-
-                const key = `${muridNama}_${record.bidang}_${displayPeringkat}`;
-                
-                if (!summaryMap[key]) {
-                  summaryMap[key] = { nama: muridNama, bidang: record.bidang, peringkat: displayPeringkat, johan: 0, naibJohan: 0, ke3: 0, ke4: 0, ke5: 0, penyertaan: 0, anugerahKhas: 0 };
-                }
-
-                if (isProgram) {
-                    const isIndividuAllowed = ['Individu', 'Individu dan Berpasukan'].includes(record.kategori);
-                    const isPasukanAllowed = ['Berpasukan', 'Individu dan Berpasukan'].includes(record.kategori);
-                    
-                    const addCount = (pencapaian) => {
-                      if (!pencapaian || pencapaian === 'Tiada') return;
-                      if (pencapaian === 'Johan') summaryMap[key].johan++;
-                      if (pencapaian === 'Naib Johan') summaryMap[key].naibJohan++;
-                      if (pencapaian === 'Ke-3') summaryMap[key].ke3++;
-                      if (pencapaian === 'Ke-4') summaryMap[key].ke4++;
-                      if (pencapaian === 'Ke-5') summaryMap[key].ke5++;
-                      if (pencapaian === 'Penyertaan') summaryMap[key].penyertaan++;
-                    };
-
-                    if (isIndividuAllowed) addCount(murid.pencapaianIndividu);
-                    if (isPasukanAllowed) addCount(murid.pencapaianPasukan);
-                    
-                } else if (isAnugerah) {
-                    summaryMap[key].anugerahKhas++;
-                }
-
-                if (sData[record.bidang] !== undefined) {
-                  sData[record.bidang] += currentTotalScore; 
-                } else if (isJawatan) {
-                  if (record.bidang === 'Sukan dan Permainan') sData['Sukan'] += currentTotalScore;
-                  if (record.bidang === 'Kelab dan Persatuan') sData['Ko-akademik'] += currentTotalScore;
-                  if (record.bidang === 'Unit Beruniform') sData['Unit Beruniform'] += currentTotalScore;
-                }
+          const parsedData = [];
+          for (let i = startIndex + 1; i < rows.length; i++) {
+            const row = rows[i];
+            if (row && row[nameIdx] && row[nameIdx].trim()) {
+              const jantinaRaw = genderIdx > -1 && row[genderIdx] ? row[genderIdx].trim().toUpperCase() : '';
+              parsedData.push({
+                nama: row[nameIdx].trim().toUpperCase(),
+                kelas: classIdx > -1 && row[classIdx] ? row[classIdx].trim() : 'TIADA KELAS',
+                jantina: jantinaRaw === 'LELAKI' ? 'Lelaki' : (jantinaRaw === 'PEREMPUAN' ? 'Perempuan' : 'Tidak Diketahui')
               });
-            });
-
-            const sortedSummary = Object.values(summaryMap).sort((a, b) => {
-              if (a.nama === b.nama) return a.bidang.localeCompare(b.bidang);
-              return a.nama.localeCompare(b.nama);
-            });
-
-            const senaraiMuridTokoh = Object.values(skorKeseluruhanMurid).sort((a, b) => b.totalSkor - a.totalSkor);
-            
-            return { 
-                summaryData: sortedSummary, 
-                spiderData: sData,
-                tokohLelaki: senaraiMuridTokoh.filter(m => m.jantina === 'Lelaki').slice(0, 2),
-                tokohPerempuan: senaraiMuridTokoh.filter(m => m.jantina === 'Perempuan').slice(0, 2)
-            };
-          }, [records, filterNama, filterPeringkat, filterBidang, filterPencapaian, filterAnugerah, filterJawatan, filterKelas]);
-
-          const guruReportData = useMemo(() => {
-            const data = {};
-            records.forEach(r => {
-                const isProgram = r.jenisBorang === 'Program' || !r.jenisBorang;
-                if (isProgram && r.guruList && r.guruList.length > 0) {
-                    r.guruList.forEach(g => {
-                        const gName = g.nama.toUpperCase();
-                        if (!data[gName]) {
-                            data[gName] = { nama: gName, total: 0, programs: [] };
-                        }
-                        data[gName].total++;
-                        data[gName].programs.push({
-                            namaProgram: r.namaProgram,
-                            tarikh: formatTarikh(r.tarikhMula, r.tarikhAkhir),
-                            bidang: r.bidang,
-                            peringkat: r.peringkat
-                        });
-                    });
-                }
-            });
-            return Object.values(data).sort((a,b) => a.nama.localeCompare(b.nama));
-          }, [records]);
-
-          // --- LOGIK BAHARU UNTUK CETAKAN LAPORAN UMUM / INDIVIDU ---
-          const individualReportData = useMemo(() => {
-            if (filterNama === 'Semua') return { program: [], jawatan: [], anugerah: [] };
-            
-            const bestPrograms = {};
-            BIDANG_PILIHAN.forEach(b => bestPrograms[b] = null);
-            const jawatanList = [];
-            const anugerahList = [];
-
-            records.forEach(r => {
-                const muridData = r.muridList.find(m => m.nama === filterNama);
-                if (muridData) {
-                    const isProgram = r.jenisBorang === 'Program' || !r.jenisBorang;
-                    const isAnugerah = r.jenisBorang === 'Anugerah';
-                    const isJawatan = r.jenisBorang === 'Jawatan';
-
-                    if (isProgram) {
-                        const isIndividuAllowed = ['Individu', 'Individu dan Berpasukan'].includes(r.kategori);
-                        const isPasukanAllowed = ['Berpasukan', 'Individu dan Berpasukan'].includes(r.kategori);
-
-                        let valIndv = isIndividuAllowed ? (SKOR_PENCAPAIAN[muridData.pencapaianIndividu] || 0) : 0;
-                        let valPskn = isPasukanAllowed ? (SKOR_PENCAPAIAN[muridData.pencapaianPasukan] || 0) : 0;
-                        let maxPencapaianVal = Math.max(valIndv, valPskn);
-                        
-                        let currentScore = (SKOR_PERINGKAT[r.peringkat] || 0) + maxPencapaianVal;
-                        
-                        let pencapaianStr = [];
-                        if (isIndividuAllowed && muridData.pencapaianIndividu !== 'Tiada') pencapaianStr.push(`Indv: ${muridData.pencapaianIndividu}`);
-                        if (isPasukanAllowed && muridData.pencapaianPasukan !== 'Tiada') pencapaianStr.push(`Pskn: ${muridData.pencapaianPasukan}`);
-                        
-                        const recData = {
-                            bidang: r.bidang,
-                            namaProgram: r.namaProgram,
-                            kategori: r.kategori,
-                            peringkat: r.peringkat,
-                            tarikhPaparan: formatTarikh(r.tarikhMula, r.tarikhAkhir),
-                            pencapaianSebenar: pencapaianStr.length > 0 ? pencapaianStr.join(' | ') : 'Penyertaan / Tiada',
-                            score: currentScore
-                        };
-
-                        if (!bestPrograms[r.bidang] || currentScore > bestPrograms[r.bidang].score) {
-                            bestPrograms[r.bidang] = recData;
-                        }
-                    } else if (isJawatan) {
-                        jawatanList.push({
-                            bidang: r.bidang,
-                            namaProgram: r.namaProgram,
-                            jawatan: muridData.jawatan,
-                            peringkat: r.peringkat,
-                            tarikhPaparan: formatTarikh(r.tarikhMula, r.tarikhAkhir),
-                            score: (SKOR_PERINGKAT[r.peringkat] || 0) + (SKOR_JAWATAN[muridData.jawatan] || 0)
-                        });
-                    } else if (isAnugerah) {
-                        anugerahList.push({
-                            bidang: r.bidang,
-                            namaAnugerah: r.namaAnugerah,
-                            peringkat: r.peringkatAnugerah,
-                            tarikhPaparan: formatTarikh(r.tarikhMula, r.tarikhAkhir),
-                            score: SKOR_PERINGKAT[r.peringkatAnugerah] || 0
-                        });
-                    }
-                }
-            });
-
-            const finalPrograms = BIDANG_PILIHAN.map(bidang => {
-                if (bestPrograms[bidang]) return bestPrograms[bidang];
-                return {
-                    bidang: bidang,
-                    namaProgram: 'Tiada',
-                    tarikhPaparan: '-',
-                    kategori: '-',
-                    peringkat: '-',
-                    pencapaianSebenar: '-'
-                };
-            });
-
-            return {
-                program: finalPrograms,
-                jawatan: jawatanList.sort((a,b) => b.score - a.score),
-                anugerah: anugerahList.sort((a,b) => b.score - a.score)
-            };
-          }, [records, filterNama]);
-
-          const allIndividualReportData = useMemo(() => {
-            if (filterNama === 'Semua') return { program: [], jawatan: [], anugerah: [] };
-            
-            const programList = [];
-            const jawatanList = [];
-            const anugerahList = [];
-
-            records.forEach(r => {
-                const muridData = r.muridList.find(m => m.nama === filterNama);
-                if (muridData) {
-                    const isProgram = r.jenisBorang === 'Program' || !r.jenisBorang;
-                    const isAnugerah = r.jenisBorang === 'Anugerah';
-                    const isJawatan = r.jenisBorang === 'Jawatan';
-
-                    if (isProgram) {
-                        const isIndividuAllowed = ['Individu', 'Individu dan Berpasukan'].includes(r.kategori);
-                        const isPasukanAllowed = ['Berpasukan', 'Individu dan Berpasukan'].includes(r.kategori);
-
-                        let pencapaianStr = [];
-                        if (isIndividuAllowed && muridData.pencapaianIndividu !== 'Tiada') pencapaianStr.push(`Indv: ${muridData.pencapaianIndividu}`);
-                        if (isPasukanAllowed && muridData.pencapaianPasukan !== 'Tiada') pencapaianStr.push(`Pskn: ${muridData.pencapaianPasukan}`);
-                        
-                        programList.push({
-                            bidang: r.bidang,
-                            namaProgram: r.namaProgram,
-                            kategori: r.kategori,
-                            peringkat: r.peringkat,
-                            tarikhPaparan: formatTarikh(r.tarikhMula, r.tarikhAkhir),
-                            pencapaianSebenar: pencapaianStr.length > 0 ? pencapaianStr.join(' | ') : 'Penyertaan / Tiada',
-                            tarikhS: new Date(r.tarikhMula)
-                        });
-                    } else if (isJawatan) {
-                        jawatanList.push({
-                            bidang: r.bidang,
-                            namaProgram: r.namaProgram,
-                            jawatan: muridData.jawatan,
-                            peringkat: r.peringkat,
-                            tarikhPaparan: formatTarikh(r.tarikhMula, r.tarikhAkhir),
-                            tarikhS: new Date(r.tarikhMula)
-                        });
-                    } else if (isAnugerah) {
-                        anugerahList.push({
-                            bidang: r.bidang,
-                            namaAnugerah: r.namaAnugerah,
-                            peringkat: r.peringkatAnugerah,
-                            tarikhPaparan: formatTarikh(r.tarikhMula, r.tarikhAkhir),
-                            tarikhS: new Date(r.tarikhMula)
-                        });
-                    }
-                }
-            });
-
-            return {
-                program: programList.sort((a,b) => b.tarikhS - a.tarikhS),
-                jawatan: jawatanList.sort((a,b) => b.tarikhS - a.tarikhS),
-                anugerah: anugerahList.sort((a,b) => b.tarikhS - a.tarikhS)
-            };
-          }, [records, filterNama]);
-
-          const cetakStudentInfo = useMemo(() => {
-            if (filterNama === 'Semua') return { kelas: '-', jantina: '-' };
-            const kelasFound = senaraiKelas.find(k => dataMurid[k]?.includes(filterNama));
-            return {
-              kelas: kelasFound || 'Tidak Diketahui',
-              jantina: getJantina(filterNama)
-            };
-          }, [filterNama, senaraiKelas, dataMurid]);
-
-          const selectedGuruData = guruReportData.find(g => g.nama === filterGuru);
-
-          if (isLoadingData) {
-            return (
-              <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center font-sans">
-                <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
-                <h2 className="text-xl font-bold text-slate-800">Menyegerak Pangkalan Data...</h2>
-                <p className="text-sm text-slate-500 mt-2">Memuat turun senarai nama dari Pautan Google Sheets secara Live.</p>
-              </div>
-            );
+            }
           }
+          setMasterData(parsedData);
+        }
 
-          const renderForm = () => {
-            const isProgram = formData.jenisBorang === 'Program';
-            const isAnugerah = formData.jenisBorang === 'Anugerah';
-            const isJawatan = formData.jenisBorang === 'Jawatan';
+        // Ambil Data Guru
+        const responseGuru = await fetch(GURU_CSV_URL);
+        const csvTextGuru = await responseGuru.text();
+        const rowsGuru = parseCSV(csvTextGuru);
+        
+        let headersGuru = [];
+        let startIndexGuru = -1;
+        
+        for(let i=0; i<Math.min(5, rowsGuru.length); i++) {
+            if(rowsGuru[i] && rowsGuru[i].some(h => h && h.toUpperCase().includes('NAMA'))) {
+                headersGuru = rowsGuru[i].map(h => h ? h.toUpperCase().trim() : '');
+                startIndexGuru = i;
+                break;
+            }
+        }
+
+        let nameIdxGuru = 0;
+        if (startIndexGuru !== -1) {
+            nameIdxGuru = headersGuru.findIndex(h => h.includes('NAMA'));
+            if (nameIdxGuru === -1) nameIdxGuru = 0;
+        }
+
+        const parsedGuru = [];
+        const startLoopGuru = startIndexGuru !== -1 ? startIndexGuru + 1 : 0;
+        for (let i = startLoopGuru; i < rowsGuru.length; i++) {
+            const row = rowsGuru[i];
+            if (row && row[nameIdxGuru] && row[nameIdxGuru].trim()) {
+                const namaGuru = row[nameIdxGuru].trim().toUpperCase();
+                if (namaGuru !== 'NAMA' && !namaGuru.includes('NAMA GURU')) {
+                    parsedGuru.push(namaGuru);
+                }
+            }
+        }
+        setMasterGuru(Array.from(new Set(parsedGuru)).sort());
+
+        // Ambil Data Kehadiran EKOKU LIVE
+        if (KEHADIRAN_CSV_URL) {
+            const resKeh = await fetch(KEHADIRAN_CSV_URL);
+            const csvKeh = await resKeh.text();
+            const rowsKeh = parseCSV(csvKeh);
             
-            const showPencapaianIndividu = isProgram && ['Individu', 'Individu dan Berpasukan'].includes(formData.kategori);
-            const showPencapaianPasukan = isProgram && ['Berpasukan', 'Individu dan Berpasukan'].includes(formData.kategori);
-            const allowMultipleMurid = true;
+            let headersKeh = [];
+            let startIdxKeh = -1;
+            for(let i=0; i<Math.min(5, rowsKeh.length); i++) {
+                if(rowsKeh[i] && rowsKeh[i].some(h => h && h.toUpperCase().includes('NAMA'))) {
+                    headersKeh = rowsKeh[i].map(h => h ? h.toUpperCase().trim() : '');
+                    startIdxKeh = i;
+                    break;
+                }
+            }
 
-            return (
-              <form onSubmit={handleSave} className="space-y-6">
-                <div className="flex flex-col md:flex-row gap-4 mb-6">
-                  <button type="button" onClick={() => setFormData(prev => ({ ...prev, jenisBorang: 'Program', bidang: BIDANG_PILIHAN.includes(prev.bidang) ? prev.bidang : BIDANG_PILIHAN[0] }))} className={`flex-1 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition ${isProgram ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}><Trophy className="w-5 h-5" /> Daftar Program / Pertandingan</button>
-                  <button type="button" onClick={() => setFormData(prev => ({ ...prev, jenisBorang: 'Anugerah', bidang: BIDANG_PILIHAN.includes(prev.bidang) ? prev.bidang : BIDANG_PILIHAN[0] }))} className={`flex-1 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition ${isAnugerah ? 'bg-amber-600 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}><Award className="w-5 h-5" /> Daftar Anugerah Khas</button>
-                  <button type="button" onClick={() => setFormData(prev => ({ ...prev, jenisBorang: 'Jawatan', bidang: BIDANG_JAWATAN_PILIHAN.includes(prev.bidang) ? prev.bidang : BIDANG_JAWATAN_PILIHAN[0] }))} className={`flex-1 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition ${isJawatan ? 'bg-emerald-600 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}><Star className="w-5 h-5" /> Daftar Jawatan</button>
+            if (startIdxKeh !== -1) {
+                const nameIdx = headersKeh.findIndex(h => h.includes('NAMA'));
+                const unitIdx = headersKeh.findIndex(h => h.includes('KELAB') || h.includes('UNIT') || h.includes('SUKAN'));
+                const hadirIdx = headersKeh.findIndex(h => h.includes('HADIR') || h.includes('SESI'));
+                const peratusIdx = headersKeh.findIndex(h => h.includes('%') || h.includes('PERATUS'));
+
+                const parsedKeh = [];
+                for (let i = startIdxKeh + 1; i < rowsKeh.length; i++) {
+                    const row = rowsKeh[i];
+                    if (row && row[nameIdx] && row[nameIdx].trim()) {
+                        parsedKeh.push({
+                            nama: row[nameIdx].trim().toUpperCase(),
+                            unit: unitIdx > -1 && row[unitIdx] ? row[unitIdx].trim() : 'Aktiviti Kokurikulum',
+                            hadirSesi: hadirIdx > -1 && row[hadirIdx] ? row[hadirIdx].trim() : '-',
+                            peratus: peratusIdx > -1 && row[peratusIdx] ? row[peratusIdx].trim() : '-'
+                        });
+                    }
+                }
+                setMasterKehadiran(parsedKeh);
+            }
+        }
+
+      } catch (error) {
+        console.error("Gagal memuat turun data CSV:", error);
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const { dataMurid, jantinaMurid, senaraiKelas } = useMemo(() => {
+    const dKelas = {};
+    const dJantina = {};
+    const kSet = new Set(DEFAULT_KELAS);
+
+    DEFAULT_KELAS.forEach(k => dKelas[k] = []);
+
+    masterData.forEach(murid => {
+       kSet.add(murid.kelas);
+       if (!dKelas[murid.kelas]) dKelas[murid.kelas] = [];
+       if (!dKelas[murid.kelas].includes(murid.nama)) {
+           dKelas[murid.kelas].push(murid.nama);
+       }
+       dJantina[murid.nama] = murid.jantina;
+    });
+
+    Object.keys(dKelas).forEach(k => dKelas[k].sort());
+    const finalKelas = Array.from(kSet).sort();
+
+    return { dataMurid: dKelas, jantinaMurid: dJantina, senaraiKelas: finalKelas };
+  }, [masterData]);
+
+  const getJantina = (nama) => {
+    if (!nama) return 'Tidak Diketahui';
+    return jantinaMurid[nama.trim().toUpperCase()] || 'Tidak Diketahui'; 
+  };
+
+  const formatTarikh = (mula, akhir) => {
+    if (!akhir || mula === akhir) return mula;
+    return `${mula} hingga ${akhir}`;
+  };
+
+  const initialFormState = {
+    jenisBorang: 'Program',
+    namaProgram: '',
+    namaAnugerah: '',
+    guruList: [{ id: Date.now(), nama: '', isManual: false }],
+    tarikhMula: '',
+    tarikhAkhir: '',
+    kategori: KATEGORI_PILIHAN[0],
+    bidang: BIDANG_PILIHAN[0],
+    peringkat: PERINGKAT_PILIHAN[0],
+    peringkatAnugerah: PERINGKAT_PILIHAN[0],
+    muridList: [{ id: Date.now(), nama: '', kelas: '', jantina: '', pencapaianIndividu: 'Tiada', pencapaianPasukan: 'Tiada', jawatan: 'Tiada', isManual: false }]
+  };
+
+  const [formData, setFormData] = useState(initialFormState);
+
+  const [filterNama, setFilterNama] = useState('Semua');
+  const [filterPeringkat, setFilterPeringkat] = useState('Keseluruhan');
+  const [filterBidang, setFilterBidang] = useState('Semua');
+  const [filterGuru, setFilterGuru] = useState('Semua');
+  
+  // --- PENAPIS BAHARU ---
+  const [filterPencapaian, setFilterPencapaian] = useState('Semua');
+  const [filterAnugerah, setFilterAnugerah] = useState('Semua');
+  const [filterJawatan, setFilterJawatan] = useState('Semua');
+  const [filterKelas, setFilterKelas] = useState('Semua');
+
+  const uniqueNames = useMemo(() => {
+    const names = new Set();
+    records.forEach(r => r.muridList.forEach(m => {
+      if (m.nama.trim()) {
+        if (filterKelas === 'Semua' || m.kelas === filterKelas) {
+          names.add(m.nama.toUpperCase());
+        }
+      }
+    }));
+    return Array.from(names).sort();
+  }, [records, filterKelas]);
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleGuruChange = (id, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      guruList: prev.guruList.map(guru => guru.id === id ? { ...guru, [field]: value } : guru)
+    }));
+  };
+
+  const addGuru = () => {
+    setFormData(prev => ({
+      ...prev,
+      guruList: [...prev.guruList, { id: Date.now(), nama: '', isManual: false }]
+    }));
+  };
+
+  const removeGuru = (id) => {
+    setFormData(prev => ({
+      ...prev,
+      guruList: prev.guruList.filter(guru => guru.id !== id)
+    }));
+  };
+
+  const handleKelasChange = (id, newKelas) => {
+    setFormData(prev => ({
+      ...prev,
+      muridList: prev.muridList.map(murid => murid.id === id ? { ...murid, kelas: newKelas, nama: '', jantina: '', isManual: false } : murid)
+    }));
+  };
+
+  const handleMuridChange = (id, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      muridList: prev.muridList.map(murid => murid.id === id ? { ...murid, [field]: value } : murid)
+    }));
+  };
+
+  const handleNamaWithJantina = (id, newNama) => {
+    setFormData(prev => ({
+      ...prev,
+      muridList: prev.muridList.map(murid => {
+        if (murid.id === id) {
+           const mappedJantina = getJantina(newNama);
+           return { ...murid, nama: newNama, jantina: mappedJantina !== 'Tidak Diketahui' ? mappedJantina : '', isManual: false };
+        }
+        return murid;
+      })
+    }));
+  };
+
+  const addMurid = () => {
+    setFormData(prev => ({
+      ...prev,
+      muridList: [...prev.muridList, { id: Date.now(), nama: '', kelas: '', jantina: '', pencapaianIndividu: 'Tiada', pencapaianPasukan: 'Tiada', jawatan: 'Tiada', isManual: false }]
+    }));
+  };
+
+  const removeMurid = (id) => {
+    setFormData(prev => ({
+      ...prev,
+      muridList: prev.muridList.filter(murid => murid.id !== id)
+    }));
+  };
+
+  const handleEdit = (record) => {
+    setFormData({
+      ...initialFormState,
+      ...record,
+      jenisBorang: record.jenisBorang || 'Program'
+    });
+    setEditingRecordId(record.id);
+    setActiveTab('form');
+  };
+
+  const cancelEdit = () => {
+    setEditingRecordId(null);
+    setFormData(initialFormState);
+  };
+
+  const handleDelete = async (id) => {
+    const updated = records.filter(r => r.id !== id);
+    setRecords(updated);
+    localStorage.setItem('mock_records', JSON.stringify(updated));
+    if (editingRecordId === id) cancelEdit();
+    showToast('Rekod telah berjaya dipadam.', 'success');
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+
+    const isProgram = formData.jenisBorang === 'Program';
+    const isAnugerah = formData.jenisBorang === 'Anugerah';
+    const isJawatan = formData.jenisBorang === 'Jawatan';
+
+    if (isProgram || isJawatan) {
+        if (!formData.namaProgram || !formData.tarikhMula || !formData.tarikhAkhir) {
+          showToast(`Sila isikan maklumat wajib (Nama ${isJawatan ? 'Kelab/Sukan' : 'Program'}, Tarikh).`, 'error');
+          return;
+        }
+    } else if (isAnugerah) {
+        if (!formData.namaAnugerah || !formData.tarikhMula || !formData.tarikhAkhir) {
+          showToast('Sila isikan maklumat wajib (Nama Anugerah, Tarikh).', 'error');
+          return;
+        }
+    }
+
+    const validMurid = formData.muridList.filter(m => m.nama.trim() !== '');
+    if (validMurid.length === 0) {
+      showToast('Sila masukkan sekurang-kurangnya nama seorang murid.', 'error');
+      return;
+    }
+    const missingJantina = validMurid.find(m => m.jantina === '');
+    if (missingJantina) {
+      showToast(`Sila pilih Jantina untuk murid bernama ${missingJantina.nama}`, 'error');
+      return;
+    }
+
+    const validGuru = isProgram ? formData.guruList.filter(g => g.nama.trim() !== '') : [];
+    
+    if (isProgram && validGuru.length === 0) {
+       showToast('Sila masukkan sekurang-kurangnya nama seorang guru pengiring.', 'error');
+       return;
+    }
+
+    const recordData = JSON.parse(JSON.stringify({ 
+        ...formData, 
+        guruList: validGuru, 
+        muridList: validMurid,
+        timestamp: Date.now()
+    }));
+    
+    if (editingRecordId) {
+        const updated = records.map(r => r.id === editingRecordId ? { ...recordData, id: editingRecordId } : r);
+        setRecords(updated);
+        localStorage.setItem('mock_records', JSON.stringify(updated));
+        setEditingRecordId(null);
+        showToast('Data berjaya dikemaskini!', 'success');
+    } else {
+        const newRecord = { ...recordData, id: Date.now().toString() };
+        const updated = [...records, newRecord];
+        setRecords(updated);
+        localStorage.setItem('mock_records', JSON.stringify(updated));
+        showToast('Data berjaya disimpan!', 'success');
+    }
+    setFormData(initialFormState);
+  };
+
+  const { summaryData, spiderData, tokohLelaki, tokohPerempuan } = useMemo(() => {
+    const summaryMap = {};
+    const sData = { 'Sukan': 0, 'Ko-akademik': 0, 'Digital': 0, 'Unit Beruniform': 0 };
+    const skorKeseluruhanMurid = {}; 
+
+    records.forEach(record => {
+      const isProgram = record.jenisBorang === 'Program' || !record.jenisBorang;
+      const isAnugerah = record.jenisBorang === 'Anugerah';
+      const isJawatan = record.jenisBorang === 'Jawatan';
+
+      record.muridList.forEach(murid => {
+        const muridNama = murid.nama.toUpperCase();
+        let currentTotalScore = 0;
+        
+        if (isProgram) {
+            const isIndividuAllowed = ['Individu', 'Individu dan Berpasukan'].includes(record.kategori);
+            const isPasukanAllowed = ['Berpasukan', 'Individu dan Berpasukan'].includes(record.kategori);
+            
+            if (isIndividuAllowed) currentTotalScore += calculateScore(record.peringkat, murid.pencapaianIndividu);
+            if (isPasukanAllowed) currentTotalScore += calculateScore(record.peringkat, murid.pencapaianPasukan);
+            
+        } else if (isAnugerah) {
+            currentTotalScore += (SKOR_PERINGKAT[record.peringkatAnugerah] || 0);
+        } else if (isJawatan) {
+            currentTotalScore += (SKOR_PERINGKAT[record.peringkat] || 0) + (SKOR_JAWATAN[murid.jawatan] || 0);
+        }
+        
+        if (!skorKeseluruhanMurid[muridNama]) {
+             skorKeseluruhanMurid[muridNama] = { nama: muridNama, jantina: murid.jantina, kelas: murid.kelas, totalSkor: 0 };
+        }
+        skorKeseluruhanMurid[muridNama].totalSkor += currentTotalScore;
+
+        const displayPeringkat = isAnugerah ? record.peringkatAnugerah : record.peringkat;
+
+        if (filterKelas !== 'Semua' && murid.kelas !== filterKelas) return;
+        if (filterPeringkat !== 'Keseluruhan' && displayPeringkat !== filterPeringkat) return;
+        if (filterBidang !== 'Semua' && record.bidang !== filterBidang) return;
+        if (filterNama !== 'Semua' && muridNama !== filterNama) return;
+
+        if (filterPencapaian !== 'Semua') {
+            if (!isProgram) return; 
+            if (murid.pencapaianIndividu !== filterPencapaian && murid.pencapaianPasukan !== filterPencapaian) return;
+        }
+
+        if (filterAnugerah !== 'Semua') {
+            const hasAnugerah = isAnugerah || (isProgram && murid.anugerah && murid.anugerah.trim() !== '');
+            if (filterAnugerah === 'Ada Anugerah' && !hasAnugerah) return;
+            if (filterAnugerah === 'Tiada Anugerah' && hasAnugerah) return;
+        }
+
+        if (filterJawatan !== 'Semua') {
+            if (!isJawatan) return; 
+            if (murid.jawatan !== filterJawatan) return;
+        }
+
+        const key = `${muridNama}_${record.bidang}_${displayPeringkat}`;
+        
+        if (!summaryMap[key]) {
+          summaryMap[key] = { nama: muridNama, bidang: record.bidang, peringkat: displayPeringkat, johan: 0, naibJohan: 0, ke3: 0, ke4: 0, ke5: 0, penyertaan: 0, anugerahKhas: 0 };
+        }
+
+        if (isProgram) {
+            const isIndividuAllowed = ['Individu', 'Individu dan Berpasukan'].includes(record.kategori);
+            const isPasukanAllowed = ['Berpasukan', 'Individu dan Berpasukan'].includes(record.kategori);
+            
+            const addCount = (pencapaian) => {
+              if (!pencapaian || pencapaian === 'Tiada') return;
+              if (pencapaian === 'Johan') summaryMap[key].johan++;
+              if (pencapaian === 'Naib Johan') summaryMap[key].naibJohan++;
+              if (pencapaian === 'Ke-3') summaryMap[key].ke3++;
+              if (pencapaian === 'Ke-4') summaryMap[key].ke4++;
+              if (pencapaian === 'Ke-5') summaryMap[key].ke5++;
+              if (pencapaian === 'Penyertaan') summaryMap[key].penyertaan++;
+            };
+
+            if (isIndividuAllowed) addCount(murid.pencapaianIndividu);
+            if (isPasukanAllowed) addCount(murid.pencapaianPasukan);
+            
+        } else if (isAnugerah) {
+            summaryMap[key].anugerahKhas++;
+        }
+
+        if (sData[record.bidang] !== undefined) {
+          sData[record.bidang] += currentTotalScore; 
+        } else if (isJawatan) {
+          if (record.bidang === 'Sukan dan Permainan') sData['Sukan'] += currentTotalScore;
+          if (record.bidang === 'Kelab dan Persatuan') sData['Ko-akademik'] += currentTotalScore;
+          if (record.bidang === 'Unit Beruniform') sData['Unit Beruniform'] += currentTotalScore;
+        }
+      });
+    });
+
+    const sortedSummary = Object.values(summaryMap).sort((a, b) => {
+      if (a.nama === b.nama) return a.bidang.localeCompare(b.bidang);
+      return a.nama.localeCompare(b.nama);
+    });
+
+    const senaraiMuridTokoh = Object.values(skorKeseluruhanMurid).sort((a, b) => b.totalSkor - a.totalSkor);
+    
+    return { 
+        summaryData: sortedSummary, 
+        spiderData: sData,
+        tokohLelaki: senaraiMuridTokoh.filter(m => m.jantina === 'Lelaki').slice(0, 2),
+        tokohPerempuan: senaraiMuridTokoh.filter(m => m.jantina === 'Perempuan').slice(0, 2)
+    };
+  }, [records, filterNama, filterPeringkat, filterBidang, filterPencapaian, filterAnugerah, filterJawatan, filterKelas]);
+
+  const guruReportData = useMemo(() => {
+    const data = {};
+    records.forEach(r => {
+        const isProgram = r.jenisBorang === 'Program' || !r.jenisBorang;
+        if (isProgram && r.guruList && r.guruList.length > 0) {
+            r.guruList.forEach(g => {
+                const gName = g.nama.toUpperCase();
+                if (!data[gName]) {
+                    data[gName] = { nama: gName, total: 0, programs: [] };
+                }
+                data[gName].total++;
+                data[gName].programs.push({
+                    namaProgram: r.namaProgram,
+                    tarikh: formatTarikh(r.tarikhMula, r.tarikhAkhir),
+                    bidang: r.bidang,
+                    peringkat: r.peringkat
+                });
+            });
+        }
+    });
+    return Object.values(data).sort((a,b) => a.nama.localeCompare(b.nama));
+  }, [records]);
+
+  // Data Laporan Individu / Umum
+  const individualReportData = useMemo(() => {
+    if (filterNama === 'Semua') return { program: [], jawatan: [], anugerah: [] };
+    
+    const bestPrograms = {};
+    BIDANG_PILIHAN.forEach(b => bestPrograms[b] = null);
+    const jawatanList = [];
+    const anugerahList = [];
+
+    records.forEach(r => {
+        const muridData = r.muridList.find(m => m.nama === filterNama);
+        if (muridData) {
+            const isProgram = r.jenisBorang === 'Program' || !r.jenisBorang;
+            const isAnugerah = r.jenisBorang === 'Anugerah';
+            const isJawatan = r.jenisBorang === 'Jawatan';
+
+            if (isProgram) {
+                const isIndividuAllowed = ['Individu', 'Individu dan Berpasukan'].includes(r.kategori);
+                const isPasukanAllowed = ['Berpasukan', 'Individu dan Berpasukan'].includes(r.kategori);
+
+                let valIndv = isIndividuAllowed ? (SKOR_PENCAPAIAN[muridData.pencapaianIndividu] || 0) : 0;
+                let valPskn = isPasukanAllowed ? (SKOR_PENCAPAIAN[muridData.pencapaianPasukan] || 0) : 0;
+                let maxPencapaianVal = Math.max(valIndv, valPskn);
+                
+                let currentScore = (SKOR_PERINGKAT[r.peringkat] || 0) + maxPencapaianVal;
+                
+                let pencapaianStr = [];
+                if (isIndividuAllowed && muridData.pencapaianIndividu !== 'Tiada') pencapaianStr.push(`Indv: ${muridData.pencapaianIndividu}`);
+                if (isPasukanAllowed && muridData.pencapaianPasukan !== 'Tiada') pencapaianStr.push(`Pskn: ${muridData.pencapaianPasukan}`);
+                
+                const recData = {
+                    bidang: r.bidang,
+                    namaProgram: r.namaProgram,
+                    kategori: r.kategori,
+                    peringkat: r.peringkat,
+                    tarikhPaparan: formatTarikh(r.tarikhMula, r.tarikhAkhir),
+                    pencapaianSebenar: pencapaianStr.length > 0 ? pencapaianStr.join(' | ') : 'Penyertaan / Tiada',
+                    score: currentScore
+                };
+
+                if (!bestPrograms[r.bidang] || currentScore > bestPrograms[r.bidang].score) {
+                    bestPrograms[r.bidang] = recData;
+                }
+            } else if (isJawatan) {
+                jawatanList.push({
+                    bidang: r.bidang,
+                    namaProgram: r.namaProgram,
+                    jawatan: muridData.jawatan,
+                    peringkat: r.peringkat,
+                    tarikhPaparan: formatTarikh(r.tarikhMula, r.tarikhAkhir),
+                    score: (SKOR_PERINGKAT[r.peringkat] || 0) + (SKOR_JAWATAN[muridData.jawatan] || 0)
+                });
+            } else if (isAnugerah) {
+                anugerahList.push({
+                    bidang: r.bidang,
+                    namaAnugerah: r.namaAnugerah,
+                    peringkat: r.peringkatAnugerah,
+                    tarikhPaparan: formatTarikh(r.tarikhMula, r.tarikhAkhir),
+                    score: SKOR_PERINGKAT[r.peringkatAnugerah] || 0
+                });
+            }
+        }
+    });
+
+    const finalPrograms = BIDANG_PILIHAN.map(bidang => {
+        if (bestPrograms[bidang]) return bestPrograms[bidang];
+        return {
+            bidang: bidang,
+            namaProgram: 'Tiada',
+            tarikhPaparan: '-',
+            kategori: '-',
+            peringkat: '-',
+            pencapaianSebenar: '-'
+        };
+    });
+
+    return {
+        program: finalPrograms,
+        jawatan: jawatanList.sort((a,b) => b.score - a.score),
+        anugerah: anugerahList.sort((a,b) => b.score - a.score)
+    };
+  }, [records, filterNama]);
+
+  // Data Laporan Tokoh
+  const allIndividualReportData = useMemo(() => {
+    if (filterNama === 'Semua') return { program: [], jawatan: [], anugerah: [] };
+    
+    const programList = [];
+    const jawatanList = [];
+    const anugerahList = [];
+
+    records.forEach(r => {
+        const muridData = r.muridList.find(m => m.nama === filterNama);
+        if (muridData) {
+            const isProgram = r.jenisBorang === 'Program' || !r.jenisBorang;
+            const isAnugerah = r.jenisBorang === 'Anugerah';
+            const isJawatan = r.jenisBorang === 'Jawatan';
+
+            if (isProgram) {
+                const isIndividuAllowed = ['Individu', 'Individu dan Berpasukan'].includes(r.kategori);
+                const isPasukanAllowed = ['Berpasukan', 'Individu dan Berpasukan'].includes(r.kategori);
+
+                let pencapaianStr = [];
+                if (isIndividuAllowed && muridData.pencapaianIndividu !== 'Tiada') pencapaianStr.push(`Indv: ${muridData.pencapaianIndividu}`);
+                if (isPasukanAllowed && muridData.pencapaianPasukan !== 'Tiada') pencapaianStr.push(`Pskn: ${muridData.pencapaianPasukan}`);
+                
+                programList.push({
+                    bidang: r.bidang,
+                    namaProgram: r.namaProgram,
+                    kategori: r.kategori,
+                    peringkat: r.peringkat,
+                    tarikhPaparan: formatTarikh(r.tarikhMula, r.tarikhAkhir),
+                    pencapaianSebenar: pencapaianStr.length > 0 ? pencapaianStr.join(' | ') : 'Penyertaan / Tiada',
+                    tarikhS: new Date(r.tarikhMula)
+                });
+            } else if (isJawatan) {
+                jawatanList.push({
+                    bidang: r.bidang,
+                    namaProgram: r.namaProgram,
+                    jawatan: muridData.jawatan,
+                    peringkat: r.peringkat,
+                    tarikhPaparan: formatTarikh(r.tarikhMula, r.tarikhAkhir),
+                    tarikhS: new Date(r.tarikhMula)
+                });
+            } else if (isAnugerah) {
+                anugerahList.push({
+                    bidang: r.bidang,
+                    namaAnugerah: r.namaAnugerah,
+                    peringkat: r.peringkatAnugerah,
+                    tarikhPaparan: formatTarikh(r.tarikhMula, r.tarikhAkhir),
+                    tarikhS: new Date(r.tarikhMula)
+                });
+            }
+        }
+    });
+
+    return {
+        program: programList.sort((a,b) => b.tarikhS - a.tarikhS),
+        jawatan: jawatanList.sort((a,b) => b.tarikhS - a.tarikhS),
+        anugerah: anugerahList.sort((a,b) => b.tarikhS - a.tarikhS)
+    };
+  }, [records, filterNama]);
+
+  // Data Analisis Kehadiran
+  const individualAttendanceData = useMemo(() => {
+    if (filterNama === 'Semua') return [];
+    
+    // 1. Jika ada CSV Kehadiran, saring nama murid
+    const realData = masterKehadiran.filter(k => k.nama === filterNama);
+    if (realData.length > 0) return realData;
+    
+    // 2. Jika tiada, kita wujudkan data simulasi agar jadual tidak kosong semasa demo/print awal
+    return [
+        { unit: 'Kelab ICT', hadirSesi: '4 / 4', peratus: '100%' },
+        { unit: 'Sukan Petanque', hadirSesi: '3 / 4', peratus: '75%' },
+        { unit: 'Pengakap', hadirSesi: '1 / 4', peratus: '25%' }
+    ];
+  }, [masterKehadiran, filterNama]);
+
+  const cetakStudentInfo = useMemo(() => {
+    if (filterNama === 'Semua') return { kelas: '-', jantina: '-' };
+    const kelasFound = senaraiKelas.find(k => dataMurid[k]?.includes(filterNama));
+    return {
+      kelas: kelasFound || 'Tidak Diketahui',
+      jantina: getJantina(filterNama)
+    };
+  }, [filterNama, senaraiKelas, dataMurid]);
+
+  const selectedGuruData = guruReportData.find(g => g.nama === filterGuru);
+
+  if (isLoadingData) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center font-sans">
+        <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
+        <h2 className="text-xl font-bold text-slate-800">Menyegerak Pangkalan Data...</h2>
+        <p className="text-sm text-slate-500 mt-2">Memuat turun data sistem secara Live.</p>
+      </div>
+    );
+  }
+
+  const renderForm = () => {
+    const isProgram = formData.jenisBorang === 'Program';
+    const isAnugerah = formData.jenisBorang === 'Anugerah';
+    const isJawatan = formData.jenisBorang === 'Jawatan';
+    
+    const showPencapaianIndividu = isProgram && ['Individu', 'Individu dan Berpasukan'].includes(formData.kategori);
+    const showPencapaianPasukan = isProgram && ['Berpasukan', 'Individu dan Berpasukan'].includes(formData.kategori);
+    const allowMultipleMurid = true;
+
+    return (
+      <form onSubmit={handleSave} className="space-y-6">
+        <div className="flex flex-col md:flex-row gap-4 mb-6">
+          <button type="button" onClick={() => setFormData(prev => ({ ...prev, jenisBorang: 'Program', bidang: BIDANG_PILIHAN.includes(prev.bidang) ? prev.bidang : BIDANG_PILIHAN[0] }))} className={`flex-1 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition ${isProgram ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}><Trophy className="w-5 h-5" /> Daftar Program / Pertandingan</button>
+          <button type="button" onClick={() => setFormData(prev => ({ ...prev, jenisBorang: 'Anugerah', bidang: BIDANG_PILIHAN.includes(prev.bidang) ? prev.bidang : BIDANG_PILIHAN[0] }))} className={`flex-1 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition ${isAnugerah ? 'bg-amber-600 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}><Award className="w-5 h-5" /> Daftar Anugerah Khas</button>
+          <button type="button" onClick={() => setFormData(prev => ({ ...prev, jenisBorang: 'Jawatan', bidang: BIDANG_JAWATAN_PILIHAN.includes(prev.bidang) ? prev.bidang : BIDANG_JAWATAN_PILIHAN[0] }))} className={`flex-1 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition ${isJawatan ? 'bg-emerald-600 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}><Star className="w-5 h-5" /> Daftar Jawatan</button>
+        </div>
+
+        {isProgram ? (
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <div className="flex items-center gap-2 mb-4 text-blue-800 border-b pb-2"><Trophy className="w-5 h-5" /><h2 className="text-lg font-semibold">Maklumat Program / Pertandingan</h2></div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="col-span-1 md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nama Pertandingan / Bengkel / Program</label>
+                  <input type="text" name="namaProgram" value={formData.namaProgram} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required placeholder="Sila masukkan nama program..." />
+                </div>
+                <div className="col-span-1 md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tarikh</label>
+                  <div className="flex items-center gap-3">
+                    <input type="date" name="tarikhMula" value={formData.tarikhMula} onChange={handleInputChange} className="w-full md:w-1/3 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required />
+                    <span className="text-sm font-medium text-gray-600">hingga</span>
+                    <input type="date" name="tarikhAkhir" value={formData.tarikhAkhir} onChange={handleInputChange} className="w-full md:w-1/3 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required />
+                  </div>
+                </div>
+                <div className="col-span-1 md:col-span-2 bg-slate-50 p-4 rounded-lg border border-slate-200 mt-2">
+                  <div className="flex justify-between items-center mb-3">
+                     <label className="block text-sm font-bold text-slate-700 flex items-center gap-2"><UserCheck className="w-4 h-4 text-blue-600"/> Senarai Jurulatih / Guru Pengiring</label>
+                     <button type="button" onClick={addGuru} className="text-xs bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1.5 rounded-md flex items-center gap-1 font-medium transition"><Plus className="w-3 h-3" /> Tambah Guru</button>
+                  </div>
+                  <div className="space-y-3">
+                    {formData.guruList.map((guru, idx) => (
+                       <div key={guru.id} className="flex gap-2 items-start">
+                          <div className="flex-1">
+                            {guru.isManual ? (
+                              <div className="flex gap-2">
+                                <input type="text" placeholder="Taip nama penuh guru" value={guru.nama} onChange={(e) => handleGuruChange(guru.id, 'nama', e.target.value.toUpperCase())} className="w-full p-2 text-sm border border-gray-300 rounded-md bg-white uppercase focus:ring-blue-500 focus:border-blue-500" required />
+                                <button type="button" onClick={() => { handleGuruChange(guru.id, 'isManual', false); handleGuruChange(guru.id, 'nama', ''); }} className="flex items-center justify-center gap-1 text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 rounded-md transition whitespace-nowrap"><List className="w-4 h-4" /> Batal</button>
+                              </div>
+                            ) : (
+                              <select value={guru.nama || ""} onChange={(e) => { if (e.target.value === 'MANUAL') { handleGuruChange(guru.id, 'isManual', true); handleGuruChange(guru.id, 'nama', ''); } else { handleGuruChange(guru.id, 'nama', e.target.value); } }} className="w-full p-2 text-sm border border-gray-300 rounded-md bg-white focus:ring-blue-500 focus:border-blue-500" required>
+                                <option value="" disabled>Pilih Nama Guru {formData.guruList.length > 1 ? idx + 1 : ''}</option>
+                                {SENARAI_GURU.map(nama => <option key={nama} value={nama}>{nama}</option>)}
+                                <option value="MANUAL" className="font-semibold text-blue-600 bg-blue-50">+ Tiada dalam senarai (Taip Manual)</option>
+                              </select>
+                            )}
+                          </div>
+                          {formData.guruList.length > 1 && (
+                            <button type="button" onClick={() => removeGuru(guru.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-md transition" title="Buang guru"><Trash2 className="w-4 h-4" /></button>
+                          )}
+                       </div>
+                    ))}
+                  </div>
                 </div>
 
-                {isProgram ? (
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                      <div className="flex items-center gap-2 mb-4 text-blue-800 border-b pb-2"><Trophy className="w-5 h-5" /><h2 className="text-lg font-semibold">Maklumat Program / Pertandingan</h2></div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="col-span-1 md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Nama Pertandingan / Bengkel / Program</label>
-                          <input type="text" name="namaProgram" value={formData.namaProgram} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required placeholder="Sila masukkan nama program..." />
-                        </div>
-                        <div className="col-span-1 md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Tarikh</label>
-                          <div className="flex items-center gap-3">
-                            <input type="date" name="tarikhMula" value={formData.tarikhMula} onChange={handleInputChange} className="w-full md:w-1/3 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required />
-                            <span className="text-sm font-medium text-gray-600">hingga</span>
-                            <input type="date" name="tarikhAkhir" value={formData.tarikhAkhir} onChange={handleInputChange} className="w-full md:w-1/3 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required />
-                          </div>
-                        </div>
-                        <div className="col-span-1 md:col-span-2 bg-slate-50 p-4 rounded-lg border border-slate-200 mt-2">
-                          <div className="flex justify-between items-center mb-3">
-                             <label className="block text-sm font-bold text-slate-700 flex items-center gap-2"><UserCheck className="w-4 h-4 text-blue-600"/> Senarai Jurulatih / Guru Pengiring</label>
-                             <button type="button" onClick={addGuru} className="text-xs bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1.5 rounded-md flex items-center gap-1 font-medium transition"><Plus className="w-3 h-3" /> Tambah Guru</button>
-                          </div>
-                          <div className="space-y-3">
-                            {formData.guruList.map((guru, idx) => (
-                               <div key={guru.id} className="flex gap-2 items-start">
-                                  <div className="flex-1">
-                                    {guru.isManual ? (
-                                      <div className="flex gap-2">
-                                        <input type="text" placeholder="Taip nama penuh guru" value={guru.nama} onChange={(e) => handleGuruChange(guru.id, 'nama', e.target.value.toUpperCase())} className="w-full p-2 text-sm border border-gray-300 rounded-md bg-white uppercase focus:ring-blue-500 focus:border-blue-500" required />
-                                        <button type="button" onClick={() => { handleGuruChange(guru.id, 'isManual', false); handleGuruChange(guru.id, 'nama', ''); }} className="flex items-center justify-center gap-1 text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 rounded-md transition whitespace-nowrap"><ListIcon className="w-4 h-4" /> Batal</button>
-                                      </div>
-                                    ) : (
-                                      <select value={guru.nama || ""} onChange={(e) => { if (e.target.value === 'MANUAL') { handleGuruChange(guru.id, 'isManual', true); handleGuruChange(guru.id, 'nama', ''); } else { handleGuruChange(guru.id, 'nama', e.target.value); } }} className="w-full p-2 text-sm border border-gray-300 rounded-md bg-white focus:ring-blue-500 focus:border-blue-500" required>
-                                        <option value="" disabled>Pilih Nama Guru {formData.guruList.length > 1 ? idx + 1 : ''}</option>
-                                        {masterGuru.map(nama => <option key={nama} value={nama}>{nama}</option>)}
-                                        <option value="MANUAL" className="font-semibold text-blue-600 bg-blue-50">+ Tiada dalam senarai (Taip Manual)</option>
-                                      </select>
-                                    )}
-                                  </div>
-                                  {formData.guruList.length > 1 && (
-                                    <button type="button" onClick={() => removeGuru(guru.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-md transition" title="Buang guru"><Trash2 className="w-4 h-4" /></button>
-                                  )}
-                               </div>
-                            ))}
-                          </div>
-                        </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Kategori</label>
+                  <select name="kategori" value={formData.kategori} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                    {KATEGORI_PILIHAN.map(k => <option key={k} value={k}>{k}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Bidang</label>
+                  <select name="bidang" value={formData.bidang} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                    {BIDANG_PILIHAN.map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Peringkat</label>
+                  <select name="peringkat" value={formData.peringkat} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                    {PERINGKAT_PILIHAN.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+        ) : isAnugerah ? (
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-amber-200 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-1 h-full bg-amber-500"></div>
+                <div className="flex items-center gap-2 mb-4 text-amber-800 border-b border-amber-100 pb-2"><Award className="w-5 h-5" /><h2 className="text-lg font-semibold">Maklumat Anugerah Khas</h2></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="col-span-1 md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nama Anugerah</label>
+                    <input type="text" name="namaAnugerah" value={formData.namaAnugerah} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required placeholder="Cth: Anugerah Tokoh Nilam, Pengakap Raja" />
+                  </div>
+                  <div className="col-span-1 md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tarikh Penganugerahan</label>
+                    <div className="flex items-center gap-3">
+                      <input type="date" name="tarikhMula" value={formData.tarikhMula} onChange={handleInputChange} className="w-full md:w-1/3 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required />
+                      <span className="text-sm font-medium text-gray-600">hingga</span>
+                      <input type="date" name="tarikhAkhir" value={formData.tarikhAkhir} onChange={handleInputChange} className="w-full md:w-1/3 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Bidang</label>
+                    <select name="bidang" value={formData.bidang} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                      {BIDANG_PILIHAN.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Peringkat Anugerah</label>
+                    <select name="peringkatAnugerah" value={formData.peringkatAnugerah} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                      {PERINGKAT_PILIHAN.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+                </div>
+            </div>
+        ) : (
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-emerald-200 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500"></div>
+                <div className="flex items-center gap-2 mb-4 text-emerald-800 border-b border-emerald-100 pb-2"><Star className="w-5 h-5" /><h2 className="text-lg font-semibold">Maklumat Jawatan (Kelab/Sukan/Unit Beruniform)</h2></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="col-span-1 md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nama Kelab / Persatuan / Sukan / Unit Beruniform</label>
+                    <select name="namaProgram" value={formData.namaProgram} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                      <option value="" disabled>Pilih Kelab / Sukan / Unit Beruniform</option>
+                      <optgroup label="Kelab">
+                        <option value="Kelab ICT">Kelab ICT</option>
+                        <option value="Kelab Pencegahan Jenayah">Kelab Pencegahan Jenayah</option>
+                        <option value="Kelab Pencinta Alam Sekitar">Kelab Pencinta Alam Sekitar</option>
+                        <option value="Kelab Rukun Negara">Kelab Rukun Negara</option>
+                      </optgroup>
+                      <optgroup label="Sukan">
+                        <option value="Petanque">Petanque</option>
+                        <option value="Sukan Stacking">Sukan Stacking</option>
+                      </optgroup>
+                      <optgroup label="Unit Beruniform">
+                        <option value="Pengakap">Pengakap</option>
+                      </optgroup>
+                      <option value="Tidak Berkaitan">Tidak Berkaitan</option>
+                    </select>
+                  </div>
+                  
+                  <div className="col-span-1 md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Sesi / Tarikh Lantikan</label>
+                    <div className="flex items-center gap-3">
+                      <input type="date" name="tarikhMula" value={formData.tarikhMula} onChange={handleInputChange} className="w-full md:w-1/3 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required />
+                      <span className="text-sm font-medium text-gray-600">hingga</span>
+                      <input type="date" name="tarikhAkhir" value={formData.tarikhAkhir} onChange={handleInputChange} className="w-full md:w-1/3 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required />
+                    </div>
+                  </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Kategori</label>
-                          <select name="kategori" value={formData.kategori} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                            {KATEGORI_PILIHAN.map(k => <option key={k} value={k}>{k}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Bidang</label>
-                          <select name="bidang" value={formData.bidang} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                            {BIDANG_PILIHAN.map(b => <option key={b} value={b}>{b}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Peringkat</label>
-                          <select name="peringkat" value={formData.peringkat} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                            {PERINGKAT_PILIHAN.map(p => <option key={p} value={p}>{p}</option>)}
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                ) : isAnugerah ? (
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-amber-200 relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-1 h-full bg-amber-500"></div>
-                        <div className="flex items-center gap-2 mb-4 text-amber-800 border-b border-amber-100 pb-2"><Award className="w-5 h-5" /><h2 className="text-lg font-semibold">Maklumat Anugerah Khas</h2></div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="col-span-1 md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Nama Anugerah</label>
-                            <input type="text" name="namaAnugerah" value={formData.namaAnugerah} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required placeholder="Cth: Anugerah Tokoh Nilam, Pengakap Raja" />
-                          </div>
-                          <div className="col-span-1 md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Tarikh Penganugerahan</label>
-                            <div className="flex items-center gap-3">
-                              <input type="date" name="tarikhMula" value={formData.tarikhMula} onChange={handleInputChange} className="w-full md:w-1/3 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required />
-                              <span className="text-sm font-medium text-gray-600">hingga</span>
-                              <input type="date" name="tarikhAkhir" value={formData.tarikhAkhir} onChange={handleInputChange} className="w-full md:w-1/3 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required />
-                            </div>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Bidang</label>
-                            <select name="bidang" value={formData.bidang} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                              {BIDANG_PILIHAN.map(b => <option key={b} value={b}>{b}</option>)}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Peringkat Anugerah</label>
-                            <select name="peringkatAnugerah" value={formData.peringkatAnugerah} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                              {PERINGKAT_PILIHAN.map(p => <option key={p} value={p}>{p}</option>)}
-                            </select>
-                          </div>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-emerald-200 relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500"></div>
-                        <div className="flex items-center gap-2 mb-4 text-emerald-800 border-b border-emerald-100 pb-2"><Star className="w-5 h-5" /><h2 className="text-lg font-semibold">Maklumat Jawatan (Kelab/Sukan/Unit Beruniform)</h2></div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="col-span-1 md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Nama Kelab / Persatuan / Sukan / Unit Beruniform</label>
-                            <select name="namaProgram" value={formData.namaProgram} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required>
-                              <option value="" disabled>Pilih Kelab / Sukan / Unit Beruniform</option>
-                              <optgroup label="Kelab">
-                                <option value="Kelab ICT">Kelab ICT</option>
-                                <option value="Kelab Pencegahan Jenayah">Kelab Pencegahan Jenayah</option>
-                                <option value="Kelab Pencinta Alam Sekitar">Kelab Pencinta Alam Sekitar</option>
-                                <option value="Kelab Rukun Negara">Kelab Rukun Negara</option>
-                              </optgroup>
-                              <optgroup label="Sukan">
-                                <option value="Petanque">Petanque</option>
-                                <option value="Sukan Stacking">Sukan Stacking</option>
-                              </optgroup>
-                              <optgroup label="Unit Beruniform">
-                                <option value="Pengakap">Pengakap</option>
-                              </optgroup>
-                              <option value="Tidak Berkaitan">Tidak Berkaitan</option>
-                            </select>
-                          </div>
-                          
-                          <div className="col-span-1 md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Sesi / Tarikh Lantikan</label>
-                            <div className="flex items-center gap-3">
-                              <input type="date" name="tarikhMula" value={formData.tarikhMula} onChange={handleInputChange} className="w-full md:w-1/3 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required />
-                              <span className="text-sm font-medium text-gray-600">hingga</span>
-                              <input type="date" name="tarikhAkhir" value={formData.tarikhAkhir} onChange={handleInputChange} className="w-full md:w-1/3 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required />
-                            </div>
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Bidang</label>
-                            <select name="bidang" value={formData.bidang} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                              {BIDANG_JAWATAN_PILIHAN.map(b => <option key={b} value={b}>{b}</option>)}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Peringkat Jawatan</label>
-                            <select name="peringkat" value={formData.peringkat} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                              {PERINGKAT_PILIHAN.map(p => <option key={p} value={p}>{p}</option>)}
-                            </select>
-                          </div>
-                        </div>
-                    </div>
-                )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Bidang</label>
+                    <select name="bidang" value={formData.bidang} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                      {BIDANG_JAWATAN_PILIHAN.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Peringkat Jawatan</label>
+                    <select name="peringkat" value={formData.peringkat} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                      {PERINGKAT_PILIHAN.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+                </div>
+            </div>
+        )}
 
         {/* BOX 2: MAKLUMAT MURID */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
@@ -1049,7 +988,7 @@
                       ) : murid.isManual ? (
                         <div className="flex gap-2">
                           <input type="text" placeholder="Taip nama penuh murid" value={murid.nama} onChange={(e) => handleMuridChange(murid.id, 'nama', e.target.value.toUpperCase())} className="w-full p-2 text-sm border border-gray-300 rounded-md bg-white uppercase focus:ring-blue-500 focus:border-blue-500" required />
-                          <button type="button" onClick={() => { handleMuridChange(murid.id, 'isManual', false); handleMuridChange(murid.id, 'nama', ''); handleMuridChange(murid.id, 'jantina', ''); }} className="flex items-center justify-center gap-1 text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 rounded-md transition whitespace-nowrap"><ListIcon className="w-4 h-4" /> Batal</button>
+                          <button type="button" onClick={() => { handleMuridChange(murid.id, 'isManual', false); handleMuridChange(murid.id, 'nama', ''); handleMuridChange(murid.id, 'jantina', ''); }} className="flex items-center justify-center gap-1 text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 rounded-md transition whitespace-nowrap"><List className="w-4 h-4" /> Batal</button>
                         </div>
                       ) : (
                         <select value={murid.nama || ""} onChange={(e) => { if (e.target.value === 'MANUAL') { handleMuridChange(murid.id, 'isManual', true); handleMuridChange(murid.id, 'nama', ''); handleMuridChange(murid.id, 'jantina', ''); } else { handleNamaWithJantina(murid.id, e.target.value); } }} className="w-full p-2 text-sm border border-gray-300 rounded-md bg-white focus:ring-blue-500 focus:border-blue-500" required>
@@ -1138,7 +1077,7 @@
     return (
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="flex items-center gap-2 mb-6 text-blue-800 border-b pb-4">
-          <ListIcon className="w-6 h-6" />
+          <List className="w-6 h-6" />
           <h2 className="text-xl font-semibold">Senarai Rekod Tersimpan</h2>
         </div>
         {records.length === 0 ? (
@@ -1543,7 +1482,7 @@
             </div>
             <div className="flex bg-blue-800 rounded-lg p-1 flex-wrap gap-1">
               <button onClick={() => setActiveTab('form')} className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition ${activeTab === 'form' ? 'bg-white text-blue-900 shadow' : 'text-white hover:bg-blue-700'}`}><FileText className="w-4 h-4" /> Pengisian Data</button>
-              <button onClick={() => setActiveTab('records')} className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition ${activeTab === 'records' ? 'bg-white text-blue-900 shadow' : 'text-white hover:bg-blue-700'}`}><ListIcon className="w-4 h-4" /> Senarai Rekod</button>
+              <button onClick={() => setActiveTab('records')} className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition ${activeTab === 'records' ? 'bg-white text-blue-900 shadow' : 'text-white hover:bg-blue-700'}`}><List className="w-4 h-4" /> Senarai Rekod</button>
               <button onClick={() => setActiveTab('summary')} className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition ${activeTab === 'summary' ? 'bg-white text-blue-900 shadow' : 'text-white hover:bg-blue-700'}`}><BarChart2 className="w-4 h-4" /> Rumusan</button>
             </div>
           </div>
@@ -1733,16 +1672,55 @@
                             </tbody>
                          </table>
                      </div>
+
+                     {/* JADUAL KEHADIRAN (TOKOH) */}
+                     <div>
+                         <h3 className="font-bold text-[10px] mb-0.5 bg-gray-200 p-1 border-l-2 border-black uppercase">D. Rekod Kehadiran Kokurikulum (Sistem EKOKU)</h3>
+                         <table className="w-full text-[9px] border-collapse border border-black">
+                            <thead>
+                               <tr className="bg-gray-100">
+                                  <th className="border border-black p-0.5 text-center w-6">Bil</th>
+                                  <th className="border border-black p-0.5 text-left">Kelab / Sukan / Unit Beruniform</th>
+                                  <th className="border border-black p-0.5 text-center">Hadir / Sesi</th>
+                                  <th className="border border-black p-0.5 text-center">Peratusan (%)</th>
+                               </tr>
+                            </thead>
+                            <tbody>
+                               {individualAttendanceData.length === 0 ? (
+                                  <tr><td colSpan="4" className="text-center p-1 border border-black font-medium italic text-gray-500">Tiada rekod kehadiran didapati dalam pangkalan data EKOKU.</td></tr>
+                               ) : individualAttendanceData.map((r, i) => {
+                                  const peratusNum = parseInt(r.peratus.replace('%', '')) || 0;
+                                  return (
+                                     <tr key={i}>
+                                        <td className="border border-black p-0.5 text-center">{i+1}</td>
+                                        <td className="border border-black p-0.5 font-medium">{r.unit}</td>
+                                        <td className="border border-black p-0.5 text-center font-bold">{r.hadirSesi}</td>
+                                        <td className={`border border-black p-0.5 text-center font-bold ${peratusNum < 50 ? 'text-red-600' : 'text-emerald-700'}`}>{r.peratus}</td>
+                                     </tr>
+                                  );
+                               })}
+                            </tbody>
+                         </table>
+                     </div>
                  </div>
                  
-                 <div className="mt-2 flex justify-end shrink-0" style={{ pageBreakInside: 'avoid' }}>
-                     <div className="text-center w-56">
-                         <p className="mb-10 text-[10px] text-left">Disahkan oleh,</p>
-                         <p className="border-b border-black w-full"></p>
-                         <p className="mt-1 font-bold text-[11px]">( AZIZ BIN TAHIR )</p>
-                         <p className="text-[10px] mt-0.5 font-semibold uppercase">Guru Besar</p>
-                         <p className="text-[10px] font-semibold uppercase">Sekolah Kebangsaan Pendidikan Khas Miri</p>
-                         <p className="text-[9px] mt-1 text-gray-500">Tarikh Cetakan: {new Date().toLocaleDateString('ms-MY')}</p>
+                 <div className="flex justify-between items-end pt-1 shrink-0" style={{ pageBreakInside: 'avoid' }}>
+                     <div className="w-1/2 pr-4">
+                         <h3 className="font-bold text-[10px] mb-1 bg-gray-200 p-1 border-l-2 border-black uppercase">E. Analisis Kekuatan & Potensi</h3>
+                         <div className="border border-black p-1 flex justify-center">
+                             <SpiderChart data={spiderData} />
+                         </div>
+                     </div>
+                     
+                     <div className="w-1/2 flex flex-col justify-end items-end pb-1">
+                         <div className="text-center w-56">
+                             <p className="mb-10 text-[10px] text-left">Disahkan oleh,</p>
+                             <p className="border-b border-black w-full"></p>
+                             <p className="mt-1 font-bold text-[11px]">( AZIZ BIN TAHIR )</p>
+                             <p className="text-[9px] mt-0.5 font-semibold uppercase">Guru Besar</p>
+                             <p className="text-[9px] font-semibold uppercase">Sekolah Kebangsaan Pendidikan Khas Miri</p>
+                             <p className="text-[8px] mt-1 text-gray-500">Tarikh Cetakan: {new Date().toLocaleDateString('ms-MY')}</p>
+                         </div>
                      </div>
                  </div>
              </div>
@@ -1797,60 +1775,32 @@
                          </table>
                      </div>
 
+                     {/* JADUAL KEHADIRAN (UMUM) */}
                      <div>
-                         <h3 className="font-bold text-[10px] mb-0.5 bg-gray-200 p-1 border-l-2 border-black uppercase">B. Jawatan Disandang</h3>
+                         <h3 className="font-bold text-[10px] mb-0.5 bg-gray-200 p-1 border-l-2 border-black uppercase">B. Rekod Kehadiran Kokurikulum (Sistem EKOKU)</h3>
                          <table className="w-full text-[9px] border-collapse border border-black">
                             <thead>
                                <tr className="bg-gray-100">
                                   <th className="border border-black p-0.5 text-center w-6">Bil</th>
-                                  <th className="border border-black p-0.5 text-center">Bidang</th>
                                   <th className="border border-black p-0.5 text-left">Kelab / Sukan / Unit Beruniform</th>
-                                  <th className="border border-black p-0.5 text-center">Jawatan</th>
-                                  <th className="border border-black p-0.5 text-center">Peringkat</th>
-                                  <th className="border border-black p-0.5 text-center">Tarikh Lantikan</th>
+                                  <th className="border border-black p-0.5 text-center">Hadir / Sesi</th>
+                                  <th className="border border-black p-0.5 text-center">Peratusan (%)</th>
                                </tr>
                             </thead>
                             <tbody>
-                               {individualReportData.jawatan.length === 0 ? (
-                                  <tr><td colSpan="6" className="text-center p-1 border border-black font-medium italic text-gray-500">Tiada rekod jawatan disandang.</td></tr>
-                               ) : individualReportData.jawatan.map((r, i) => (
-                                  <tr key={i}>
-                                     <td className="border border-black p-0.5 text-center">{i+1}</td>
-                                     <td className="border border-black p-0.5 text-center font-bold">{r.bidang}</td>
-                                     <td className="border border-black p-0.5 font-medium">{r.namaProgram}</td>
-                                     <td className="border border-black p-0.5 text-center font-bold text-emerald-700">{r.jawatan}</td>
-                                     <td className="border border-black p-0.5 text-center font-semibold">{r.peringkat}</td>
-                                     <td className="border border-black p-0.5 text-center whitespace-nowrap">{r.tarikhPaparan}</td>
-                                  </tr>
-                               ))}
-                            </tbody>
-                         </table>
-                     </div>
-
-                     <div>
-                         <h3 className="font-bold text-[10px] mb-0.5 bg-gray-200 p-1 border-l-2 border-black uppercase">C. Anugerah Khas</h3>
-                         <table className="w-full text-[9px] border-collapse border border-black">
-                            <thead>
-                               <tr className="bg-gray-100">
-                                  <th className="border border-black p-0.5 text-center w-6">Bil</th>
-                                  <th className="border border-black p-0.5 text-center">Bidang</th>
-                                  <th className="border border-black p-0.5 text-left">Nama Anugerah</th>
-                                  <th className="border border-black p-0.5 text-center">Peringkat</th>
-                                  <th className="border border-black p-0.5 text-center">Tarikh Penganugerahan</th>
-                               </tr>
-                            </thead>
-                            <tbody>
-                               {individualReportData.anugerah.length === 0 ? (
-                                  <tr><td colSpan="5" className="text-center p-1 border border-black font-medium italic text-gray-500">Tiada rekod anugerah khas.</td></tr>
-                               ) : individualReportData.anugerah.map((r, i) => (
-                                  <tr key={i}>
-                                     <td className="border border-black p-0.5 text-center">{i+1}</td>
-                                     <td className="border border-black p-0.5 text-center font-bold">{r.bidang}</td>
-                                     <td className="border border-black p-0.5 font-medium text-amber-700">{r.namaAnugerah}</td>
-                                     <td className="border border-black p-0.5 text-center font-semibold">{r.peringkat}</td>
-                                     <td className="border border-black p-0.5 text-center whitespace-nowrap">{r.tarikhPaparan}</td>
-                                  </tr>
-                               ))}
+                               {individualAttendanceData.length === 0 ? (
+                                  <tr><td colSpan="4" className="text-center p-1 border border-black font-medium italic text-gray-500">Tiada rekod kehadiran didapati dalam pangkalan data EKOKU.</td></tr>
+                               ) : individualAttendanceData.map((r, i) => {
+                                  const peratusNum = parseInt(r.peratus.replace('%', '')) || 0;
+                                  return (
+                                     <tr key={i}>
+                                        <td className="border border-black p-0.5 text-center">{i+1}</td>
+                                        <td className="border border-black p-0.5 font-medium">{r.unit}</td>
+                                        <td className="border border-black p-0.5 text-center font-bold">{r.hadirSesi}</td>
+                                        <td className={`border border-black p-0.5 text-center font-bold ${peratusNum < 50 ? 'text-red-600' : 'text-emerald-700'}`}>{r.peratus}</td>
+                                     </tr>
+                                  );
+                               })}
                             </tbody>
                          </table>
                      </div>
@@ -1858,7 +1808,7 @@
 
                  <div className="flex justify-between items-end pt-1 shrink-0" style={{ pageBreakInside: 'avoid' }}>
                      <div className="w-1/2 pr-4">
-                         <h3 className="font-bold text-[10px] mb-1 bg-gray-200 p-1 border-l-2 border-black uppercase">D. Analisis Kekuatan & Potensi</h3>
+                         <h3 className="font-bold text-[10px] mb-1 bg-gray-200 p-1 border-l-2 border-black uppercase">C. Analisis Kekuatan & Potensi</h3>
                          <div className="border border-black p-1 flex justify-center">
                              <SpiderChart data={spiderData} />
                          </div>
@@ -1869,9 +1819,9 @@
                              <p className="mb-10 text-[10px] text-left">Disahkan oleh,</p>
                              <p className="border-b border-black w-full"></p>
                              <p className="mt-1 font-bold text-[11px]">( AZIZ BIN TAHIR )</p>
-                             <p className="text-[9px] mt-0.5 font-semibold uppercase">Guru Besar</p>
-                             <p className="text-[9px] font-semibold uppercase">Sekolah Kebangsaan Pendidikan Khas Miri</p>
-                             <p className="text-[8px] mt-1 text-gray-500">Tarikh Cetakan: {new Date().toLocaleDateString('ms-MY')}</p>
+                             <p className="text-[10px] mt-0.5 font-semibold uppercase">Guru Besar</p>
+                             <p className="text-[10px] font-semibold uppercase">Sekolah Kebangsaan Pendidikan Khas Miri</p>
+                             <p className="text-[9px] mt-1 text-gray-500">Tarikh Cetakan: {new Date().toLocaleDateString('ms-MY')}</p>
                          </div>
                      </div>
                  </div>
@@ -1881,10 +1831,3 @@
     </>
   );
 }
-
-        const rootElement = document.getElementById('root');
-        const root = ReactDOM.createRoot(rootElement);
-        root.render(<App />);
-    </script>
-</body>
-</html>
