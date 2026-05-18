@@ -889,6 +889,44 @@
             ];
           }, [masterKehadiran, filterNama]);
 
+          // --- DATA ANALISIS PENCAPAIAN SEKOLAH KESELURUHAN ---
+          const schoolAnalysisData = useMemo(() => {
+            const stats = {
+              'Daerah': { Johan: 0, NaibJohan: 0, Ke3: 0, Ke4: 0, Ke5: 0, Penyertaan: 0, Total: 0 },
+              'Bahagian': { Johan: 0, NaibJohan: 0, Ke3: 0, Ke4: 0, Ke5: 0, Penyertaan: 0, Total: 0 },
+              'Negeri': { Johan: 0, NaibJohan: 0, Ke3: 0, Ke4: 0, Ke5: 0, Penyertaan: 0, Total: 0 },
+              'Kebangsaan': { Johan: 0, NaibJohan: 0, Ke3: 0, Ke4: 0, Ke5: 0, Penyertaan: 0, Total: 0 },
+              'Antarabangsa': { Johan: 0, NaibJohan: 0, Ke3: 0, Ke4: 0, Ke5: 0, Penyertaan: 0, Total: 0 }
+            };
+
+            records.forEach(r => {
+                const isProgram = r.jenisBorang === 'Program' || !r.jenisBorang;
+                if (!isProgram) return; // Abaikan Jawatan & Anugerah Khas
+                if (!stats[r.peringkat]) return; // Hanya baca 5 peringkat teratas
+
+                r.muridList.forEach(m => {
+                    const addCount = (p) => {
+                        if (!p || p === 'Tiada') return;
+                        if (p === 'Johan') stats[r.peringkat].Johan++;
+                        else if (p === 'Naib Johan') stats[r.peringkat].NaibJohan++;
+                        else if (p === 'Ke-3') stats[r.peringkat].Ke3++;
+                        else if (p === 'Ke-4') stats[r.peringkat].Ke4++;
+                        else if (p === 'Ke-5') stats[r.peringkat].Ke5++;
+                        else if (p === 'Penyertaan') stats[r.peringkat].Penyertaan++;
+                        
+                        stats[r.peringkat].Total++;
+                    };
+
+                    const isIndividuAllowed = ['Individu', 'Individu dan Berpasukan'].includes(r.kategori);
+                    const isPasukanAllowed = ['Berpasukan', 'Individu dan Berpasukan'].includes(r.kategori);
+
+                    if (isIndividuAllowed) addCount(m.pencapaianIndividu);
+                    if (isPasukanAllowed) addCount(m.pencapaianPasukan);
+                });
+            });
+            return stats;
+          }, [records]);
+
           const cetakStudentInfo = useMemo(() => {
             if (filterNama === 'Semua') return { kelas: '-', jantina: '-' };
             const kelasFound = senaraiKelas.find(k => dataMurid[k]?.includes(filterNama));
@@ -1275,7 +1313,7 @@
     return (
       <div className="space-y-6">
         
-        {/* Toggle View: Murid / Guru */}
+        {/* Toggle View: Murid / Guru / Sekolah */}
         <div className="flex justify-center mb-2">
             <div className="bg-white p-1.5 rounded-xl shadow-sm border border-gray-200 inline-flex flex-wrap justify-center gap-1">
                <button onClick={() => setSummaryView('murid')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${summaryView==='murid'?'bg-blue-600 text-white shadow':'text-gray-500 hover:bg-gray-100'}`}>
@@ -1283,6 +1321,9 @@
                </button>
                <button onClick={() => setSummaryView('guru')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${summaryView==='guru'?'bg-emerald-600 text-white shadow':'text-gray-500 hover:bg-gray-100'}`}>
                  <div className="flex items-center gap-2"><UserCheck className="w-4 h-4"/> Rumusan Guru Pengiring</div>
+               </button>
+               <button onClick={() => setSummaryView('sekolah')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${summaryView==='sekolah'?'bg-purple-600 text-white shadow':'text-gray-500 hover:bg-gray-100'}`}>
+                 <div className="flex items-center gap-2"><Trophy className="w-4 h-4"/> Analisis Sekolah</div>
                </button>
             </div>
         </div>
@@ -1500,7 +1541,7 @@
                 )}
             </div>
         </>
-        ) : (
+        ) : summaryView === 'guru' ? (
         /* PAPARAN RUMUSAN GURU PENGIRING */
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="flex items-center justify-between gap-2 mb-6 border-b pb-4">
@@ -1587,6 +1628,51 @@
                     </table>
                 </div>
             )}
+        </div>
+        ) : (
+        /* PAPARAN RUMUSAN SEKOLAH */
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="flex items-center justify-between gap-2 mb-6 border-b pb-4">
+                <div className="flex items-center gap-2 text-purple-700">
+                    <Trophy className="w-6 h-6" />
+                    <h2 className="text-xl font-semibold">Analisis Pencapaian Keseluruhan Sekolah</h2>
+                </div>
+            </div>
+            
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+               {['Daerah', 'Bahagian', 'Negeri', 'Kebangsaan', 'Antarabangsa'].map(lvl => {
+                  const data = schoolAnalysisData[lvl];
+                  if (!data) return null;
+                  const maxVal = Math.max(data.Total, 1);
+                  return (
+                     <div key={lvl} className="bg-slate-50 p-5 rounded-xl border border-slate-200">
+                        <h3 className="font-bold text-lg mb-4 text-slate-800 border-b pb-2 flex justify-between items-end">
+                           <span>Peringkat {lvl}</span>
+                           <span className="text-xs font-semibold bg-purple-100 text-purple-800 px-2 py-1 rounded-md">{data.Total} Penyertaan</span>
+                        </h3>
+                        <div className="space-y-3">
+                           {[
+                              { label: 'Johan', val: data.Johan, color: 'bg-yellow-400' },
+                              { label: 'Naib Johan', val: data.NaibJohan, color: 'bg-slate-300' },
+                              { label: 'Ketiga', val: data.Ke3, color: 'bg-amber-600' },
+                              { label: 'Ke-4', val: data.Ke4, color: 'bg-blue-400' },
+                              { label: 'Ke-5', val: data.Ke5, color: 'bg-blue-300' },
+                              { label: 'Penyertaan', val: data.Penyertaan, color: 'bg-indigo-200' }
+                           ].map(item => (
+                              <div key={item.label} className="flex items-center text-sm">
+                                 <span className="w-24 font-medium text-slate-600">{item.label}</span>
+                                 <div className="flex-1 bg-gray-200 h-4 rounded-full overflow-hidden flex">
+                                    <div className={`${item.color} h-full transition-all duration-500`} style={{ width: `${(item.val / maxVal) * 100}%` }}></div>
+                                 </div>
+                                 <span className="w-8 text-right font-bold text-slate-700">{item.val}</span>
+                              </div>
+                           ))}
+                        </div>
+                     </div>
+                  );
+               })}
+            </div>
+            <p className="text-xs text-gray-500 mt-6 italic">* Analisis carta ini dikira secara automatik (Live) dan hanya mengambil kira data dari borang pendaftaran jenis "Program / Pertandingan" untuk mewakili pencapaian mutlak sekolah. Data "Jawatan" dan "Anugerah Khas" diabaikan dalam kiraan carta di atas.</p>
         </div>
         )}
       </div>
