@@ -417,6 +417,7 @@
           const [filterAnugerah, setFilterAnugerah] = useState('Semua');
           const [filterJawatan, setFilterJawatan] = useState('Semua');
           const [filterKelas, setFilterKelas] = useState('Semua');
+          const [filterSekolahBidang, setFilterSekolahBidang] = useState('Semua');
 
           const uniqueNames = useMemo(() => {
             const names = new Set();
@@ -903,6 +904,9 @@
                 const isProgram = r.jenisBorang === 'Program' || !r.jenisBorang;
                 if (!isProgram) return; // Abaikan Jawatan & Anugerah Khas
                 if (!stats[r.peringkat]) return; // Hanya baca 5 peringkat teratas
+                
+                // Penapis Bidang untuk Analisis Sekolah
+                if (filterSekolahBidang !== 'Semua' && r.bidang !== filterSekolahBidang) return;
 
                 r.muridList.forEach(m => {
                     const addCount = (p) => {
@@ -925,7 +929,7 @@
                 });
             });
             return stats;
-          }, [records]);
+          }, [records, filterSekolahBidang]);
 
           const cetakStudentInfo = useMemo(() => {
             if (filterNama === 'Semua') return { kelas: '-', jantina: '-' };
@@ -1632,10 +1636,19 @@
         ) : (
         /* PAPARAN RUMUSAN SEKOLAH */
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="flex items-center justify-between gap-2 mb-6 border-b pb-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b pb-4">
                 <div className="flex items-center gap-2 text-purple-700">
                     <Trophy className="w-6 h-6" />
                     <h2 className="text-xl font-semibold">Analisis Pencapaian Keseluruhan Sekolah</h2>
+                </div>
+                
+                <div className="flex items-center gap-2 bg-purple-50 p-2 rounded-lg border border-purple-100">
+                    <FilterIcon className="w-4 h-4 text-purple-600" />
+                    <label className="text-sm font-medium text-purple-800">Bidang:</label>
+                    <select value={filterSekolahBidang} onChange={(e) => setFilterSekolahBidang(e.target.value)} className="p-1.5 text-sm border border-purple-200 rounded-md bg-white focus:ring-purple-500 focus:border-purple-500 font-medium text-gray-700 outline-none">
+                        <option value="Semua">Semua Bidang</option>
+                        {BIDANG_PILIHAN.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
                 </div>
             </div>
             
