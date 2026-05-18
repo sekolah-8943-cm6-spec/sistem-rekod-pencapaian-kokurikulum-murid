@@ -1897,9 +1897,67 @@
                          </table>
                      </div>
 
+                     <div>
+                         <h3 className="font-bold text-[10px] mb-0.5 bg-gray-200 p-1 border-l-2 border-black uppercase">B. Jawatan Disandang</h3>
+                         <table className="w-full text-[9px] border-collapse border border-black">
+                            <thead>
+                               <tr className="bg-gray-100">
+                                  <th className="border border-black p-0.5 text-center w-6">Bil</th>
+                                  <th className="border border-black p-0.5 text-center">Bidang</th>
+                                  <th className="border border-black p-0.5 text-left">Kelab / Sukan / Unit Beruniform</th>
+                                  <th className="border border-black p-0.5 text-center">Jawatan</th>
+                                  <th className="border border-black p-0.5 text-center">Peringkat</th>
+                                  <th className="border border-black p-0.5 text-center">Tarikh Lantikan</th>
+                               </tr>
+                            </thead>
+                            <tbody>
+                               {individualReportData.jawatan.length === 0 ? (
+                                  <tr><td colSpan="6" className="text-center p-1 border border-black font-medium italic text-gray-500">Tiada rekod jawatan disandang.</td></tr>
+                               ) : individualReportData.jawatan.map((r, i) => (
+                                  <tr key={i}>
+                                     <td className="border border-black p-0.5 text-center">{i+1}</td>
+                                     <td className="border border-black p-0.5 text-center font-bold">{r.bidang}</td>
+                                     <td className="border border-black p-0.5 font-medium">{r.namaProgram}</td>
+                                     <td className="border border-black p-0.5 text-center font-bold text-emerald-700">{r.jawatan}</td>
+                                     <td className="border border-black p-0.5 text-center font-semibold">{r.peringkat}</td>
+                                     <td className="border border-black p-0.5 text-center whitespace-nowrap">{r.tarikhPaparan}</td>
+                                  </tr>
+                               ))}
+                            </tbody>
+                         </table>
+                     </div>
+
+                     <div>
+                         <h3 className="font-bold text-[10px] mb-0.5 bg-gray-200 p-1 border-l-2 border-black uppercase">C. Anugerah Khas</h3>
+                         <table className="w-full text-[9px] border-collapse border border-black">
+                            <thead>
+                               <tr className="bg-gray-100">
+                                  <th className="border border-black p-0.5 text-center w-6">Bil</th>
+                                  <th className="border border-black p-0.5 text-center">Bidang</th>
+                                  <th className="border border-black p-0.5 text-left">Nama Anugerah</th>
+                                  <th className="border border-black p-0.5 text-center">Peringkat</th>
+                                  <th className="border border-black p-0.5 text-center">Tarikh Penganugerahan</th>
+                               </tr>
+                            </thead>
+                            <tbody>
+                               {individualReportData.anugerah.length === 0 ? (
+                                  <tr><td colSpan="5" className="text-center p-1 border border-black font-medium italic text-gray-500">Tiada rekod anugerah khas.</td></tr>
+                               ) : individualReportData.anugerah.map((r, i) => (
+                                  <tr key={i}>
+                                     <td className="border border-black p-0.5 text-center">{i+1}</td>
+                                     <td className="border border-black p-0.5 text-center font-bold">{r.bidang}</td>
+                                     <td className="border border-black p-0.5 font-medium text-amber-700">{r.namaAnugerah}</td>
+                                     <td className="border border-black p-0.5 text-center font-semibold">{r.peringkat}</td>
+                                     <td className="border border-black p-0.5 text-center whitespace-nowrap">{r.tarikhPaparan}</td>
+                                  </tr>
+                               ))}
+                            </tbody>
+                         </table>
+                     </div>
+
                      {/* JADUAL KEHADIRAN (UMUM) */}
                      <div>
-                         <h3 className="font-bold text-[10px] mb-0.5 bg-gray-200 p-1 border-l-2 border-black uppercase">B. Rekod Kehadiran Kokurikulum (Sistem EKOKU)</h3>
+                         <h3 className="font-bold text-[10px] mb-0.5 bg-gray-200 p-1 border-l-2 border-black uppercase">D. Rekod Kehadiran Kokurikulum (Sistem EKOKU)</h3>
                          <table className="w-full text-[9px] border-collapse border border-black">
                             <thead>
                                <tr className="bg-gray-100">
@@ -1930,7 +1988,7 @@
 
                  <div className="flex justify-between items-end pt-1 shrink-0" style={{ pageBreakInside: 'avoid' }}>
                      <div className="w-1/2 pr-4">
-                         <h3 className="font-bold text-[10px] mb-1 bg-gray-200 p-1 border-l-2 border-black uppercase">C. Analisis Kekuatan & Potensi</h3>
+                         <h3 className="font-bold text-[10px] mb-1 bg-gray-200 p-1 border-l-2 border-black uppercase">E. Analisis Kekuatan & Potensi</h3>
                          <div className="border border-black p-1 flex justify-center">
                              <SpiderChart data={spiderData} />
                          </div>
