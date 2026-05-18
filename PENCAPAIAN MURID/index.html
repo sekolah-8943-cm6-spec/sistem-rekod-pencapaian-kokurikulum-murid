@@ -1569,7 +1569,7 @@
                          <img src="logo sekolah.jpg" alt="Logo Sekolah" className="w-full h-full object-contain" onError={(e) => { e.target.onerror = null; e.target.src = 'latest 6.5.jpg'; }} />
                      </div>
                      <h1 className="text-xl font-extrabold uppercase text-center">Sekolah Kebangsaan Pendidikan Khas Miri</h1>
-                     <p className="text-[11px] font-bold mt-1 bg-gray-800 text-white inline-block px-3 py-0.5 rounded">LAPORAN PENGLIBATAN GURU PENGIRING / PENASIHAT</p>
+                     <p className="text-[11px] font-bold mt-1 bg-gray-800 text-white inline-block px-3 py-0.5 rounded">LAPORAN PENGLIBATAN GURU PENGIRING / JURULATIH</p>
                  </div>
 
                  <div className="mb-4 border-l-4 border-black pl-3">
@@ -1651,7 +1651,7 @@
                                <tr className="bg-gray-100">
                                   <th className="border border-black p-0.5 text-center w-6">Bil</th>
                                   <th className="border border-black p-0.5 text-center">Bidang</th>
-                                  <th className="border border-black p-0.5 text-left">Nama Program</th>
+                                  <th className="border border-black p-0.5 text-left">Nama Program / Jawatan</th>
                                   <th className="border border-black p-0.5 text-center">Tarikh / Sesi</th>
                                   <th className="border border-black p-0.5 text-center">Kategori</th>
                                   <th className="border border-black p-0.5 text-center">Peringkat</th>
@@ -1665,10 +1665,10 @@
                                   <tr key={i}>
                                      <td className="border border-black p-0.5 text-center">{i+1}</td>
                                      <td className="border border-black p-0.5 text-center font-bold">{r.bidang}</td>
-                                     <td className="border border-black p-0.5 font-medium">{r.namaProgram}</td>
+                                     <td className="border border-black p-0.5 font-medium">{r.namaProgramPaparan}</td>
                                      <td className="border border-black p-0.5 text-center whitespace-nowrap">{r.tarikhPaparan}</td>
-                                     <td className="border border-black p-0.5 text-center">{r.kategori}</td>
-                                     <td className="border border-black p-0.5 text-center font-semibold">{r.peringkat}</td>
+                                     <td className="border border-black p-0.5 text-center">{r.kategoriPaparan}</td>
+                                     <td className="border border-black p-0.5 text-center font-semibold">{r.peringkatPaparan}</td>
                                      <td className="border border-black p-0.5 text-center font-bold">{r.pencapaianSebenar}</td>
                                   </tr>
                                ))}
