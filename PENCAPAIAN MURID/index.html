@@ -1882,7 +1882,9 @@
                                </tr>
                             </thead>
                             <tbody>
-                               {reportRecords.map((r, i) => (
+                               {individualReportData.program.length === 0 ? (
+                                  <tr><td colSpan="7" className="text-center p-1 border border-black font-medium italic text-gray-500">Tiada rekod penglibatan kokurikulum untuk murid ini.</td></tr>
+                               ) : individualReportData.program.map((r, i) => (
                                   <tr key={i}>
                                      <td className="border border-black p-0.5 text-center">{i+1}</td>
                                      <td className="border border-black p-0.5 text-center font-bold">{r.bidang}</td>
