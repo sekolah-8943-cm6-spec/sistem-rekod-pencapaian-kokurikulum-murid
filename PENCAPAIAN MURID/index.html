@@ -949,6 +949,37 @@
             return stats;
           }, [records, filterSekolahBidang, filterSekolahTahun]);
 
+          // --- DATA SPIDER CHART SEKOLAH ---
+          const schoolSpiderData = useMemo(() => {
+            const sData = { 'Sukan': 0, 'Ko-akademik': 0, 'Digital': 0, 'Unit Beruniform': 0 };
+
+            records.forEach(r => {
+                const isProgram = r.jenisBorang === 'Program' || !r.jenisBorang;
+                if (!isProgram) return; 
+                
+                if (filterSekolahTahun !== 'Semua') {
+                    const recordYear = r.tarikhMula ? r.tarikhMula.substring(0, 4) : '';
+                    if (recordYear !== filterSekolahTahun) return;
+                }
+
+                if (filterSekolahBidang !== 'Semua' && r.bidang !== filterSekolahBidang) return;
+
+                r.muridList.forEach(m => {
+                    let currentScore = 0;
+                    const isIndividuAllowed = ['Individu', 'Individu dan Berpasukan'].includes(r.kategori);
+                    const isPasukanAllowed = ['Berpasukan', 'Individu dan Berpasukan'].includes(r.kategori);
+
+                    if (isIndividuAllowed) currentScore += calculateScore(r.peringkat, m.pencapaianIndividu);
+                    if (isPasukanAllowed) currentScore += calculateScore(r.peringkat, m.pencapaianPasukan);
+
+                    if (sData[r.bidang] !== undefined) {
+                        sData[r.bidang] += currentScore;
+                    }
+                });
+            });
+            return sData;
+          }, [records, filterSekolahTahun, filterSekolahBidang]);
+
           const cetakStudentInfo = useMemo(() => {
             if (filterNama === 'Semua') return { kelas: '-', jantina: '-' };
             const kelasFound = senaraiKelas.find(k => dataMurid[k]?.includes(filterNama));
@@ -1681,38 +1712,45 @@
                 </div>
             </div>
             
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-               {['Daerah', 'Bahagian', 'Negeri', 'Kebangsaan', 'Antarabangsa'].map(lvl => {
-                  const data = schoolAnalysisData[lvl];
-                  if (!data) return null;
-                  const maxVal = Math.max(data.Total, 1);
-                  return (
-                     <div key={lvl} className="bg-slate-50 p-5 rounded-xl border border-slate-200">
-                        <h3 className="font-bold text-lg mb-4 text-slate-800 border-b pb-2 flex justify-between items-end">
-                           <span>Peringkat {lvl}</span>
-                           <span className="text-xs font-semibold bg-purple-100 text-purple-800 px-2 py-1 rounded-md">{data.Total} Penyertaan</span>
-                        </h3>
-                        <div className="space-y-3">
-                           {[
-                              { label: 'Johan', val: data.Johan, color: 'bg-yellow-400' },
-                              { label: 'Naib Johan', val: data.NaibJohan, color: 'bg-slate-300' },
-                              { label: 'Ketiga', val: data.Ke3, color: 'bg-amber-600' },
-                              { label: 'Ke-4', val: data.Ke4, color: 'bg-blue-400' },
-                              { label: 'Ke-5', val: data.Ke5, color: 'bg-blue-300' },
-                              { label: 'Penyertaan', val: data.Penyertaan, color: 'bg-indigo-200' }
-                           ].map(item => (
-                              <div key={item.label} className="flex items-center text-sm">
-                                 <span className="w-24 font-medium text-slate-600">{item.label}</span>
-                                 <div className="flex-1 bg-gray-200 h-4 rounded-full overflow-hidden flex">
-                                    <div className={`${item.color} h-full transition-all duration-500`} style={{ width: `${(item.val / maxVal) * 100}%` }}></div>
-                                 </div>
-                                 <span className="w-8 text-right font-bold text-slate-700">{item.val}</span>
-                              </div>
-                           ))}
-                        </div>
-                     </div>
-                  );
-               })}
+            <div className="flex flex-col xl:flex-row gap-6">
+                <div className="w-full xl:w-[350px] shrink-0 bg-slate-50 p-5 rounded-xl border border-slate-200 flex flex-col justify-center items-center">
+                    <h3 className="font-bold text-lg mb-4 text-slate-800 border-b pb-2 w-full text-center">Keseimbangan Bidang</h3>
+                    <SpiderChart data={schoolSpiderData} />
+                </div>
+                
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
+                   {['Daerah', 'Bahagian', 'Negeri', 'Kebangsaan', 'Antarabangsa'].map(lvl => {
+                      const data = schoolAnalysisData[lvl];
+                      if (!data) return null;
+                      const maxVal = Math.max(data.Total, 1);
+                      return (
+                         <div key={lvl} className="bg-slate-50 p-5 rounded-xl border border-slate-200">
+                            <h3 className="font-bold text-lg mb-4 text-slate-800 border-b pb-2 flex justify-between items-end">
+                               <span>Peringkat {lvl}</span>
+                               <span className="text-xs font-semibold bg-purple-100 text-purple-800 px-2 py-1 rounded-md">{data.Total} Penyertaan</span>
+                            </h3>
+                            <div className="space-y-3">
+                               {[
+                                  { label: 'Johan', val: data.Johan, color: 'bg-yellow-400' },
+                                  { label: 'Naib Johan', val: data.NaibJohan, color: 'bg-slate-300' },
+                                  { label: 'Ketiga', val: data.Ke3, color: 'bg-amber-600' },
+                                  { label: 'Ke-4', val: data.Ke4, color: 'bg-blue-400' },
+                                  { label: 'Ke-5', val: data.Ke5, color: 'bg-blue-300' },
+                                  { label: 'Penyertaan', val: data.Penyertaan, color: 'bg-indigo-200' }
+                               ].map(item => (
+                                  <div key={item.label} className="flex items-center text-sm">
+                                     <span className="w-24 font-medium text-slate-600">{item.label}</span>
+                                     <div className="flex-1 bg-gray-200 h-4 rounded-full overflow-hidden flex">
+                                        <div className={`${item.color} h-full transition-all duration-500`} style={{ width: `${(item.val / maxVal) * 100}%` }}></div>
+                                     </div>
+                                     <span className="w-8 text-right font-bold text-slate-700">{item.val}</span>
+                                  </div>
+                               ))}
+                            </div>
+                         </div>
+                      );
+                   })}
+                </div>
             </div>
             <p className="text-xs text-gray-500 mt-6 italic">* Analisis carta ini dikira secara automatik (Live) dan hanya mengambil kira data dari borang pendaftaran jenis "Program / Pertandingan" untuk mewakili pencapaian mutlak sekolah. Data "Jawatan" dan "Anugerah Khas" diabaikan dalam kiraan carta di atas.</p>
         </div>
