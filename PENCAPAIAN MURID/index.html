@@ -418,6 +418,18 @@
           const [filterJawatan, setFilterJawatan] = useState('Semua');
           const [filterKelas, setFilterKelas] = useState('Semua');
           const [filterSekolahBidang, setFilterSekolahBidang] = useState('Semua');
+          const [filterSekolahTahun, setFilterSekolahTahun] = useState('Semua');
+
+          const uniqueTahun = useMemo(() => {
+            const years = new Set(['2026']); // Bermula dengan 2026
+            records.forEach(r => {
+              if (r.tarikhMula) {
+                const year = r.tarikhMula.substring(0, 4);
+                if (year && !isNaN(year)) years.add(year);
+              }
+            });
+            return Array.from(years).sort().reverse();
+          }, [records]);
 
           const uniqueNames = useMemo(() => {
             const names = new Set();
@@ -908,6 +920,12 @@
                 // Penapis Bidang untuk Analisis Sekolah
                 if (filterSekolahBidang !== 'Semua' && r.bidang !== filterSekolahBidang) return;
 
+                // Penapis Tahun untuk Analisis Sekolah
+                if (filterSekolahTahun !== 'Semua') {
+                    const recordYear = r.tarikhMula ? r.tarikhMula.substring(0, 4) : '';
+                    if (recordYear !== filterSekolahTahun) return;
+                }
+
                 r.muridList.forEach(m => {
                     const addCount = (p) => {
                         if (!p || p === 'Tiada') return;
@@ -929,7 +947,7 @@
                 });
             });
             return stats;
-          }, [records, filterSekolahBidang]);
+          }, [records, filterSekolahBidang, filterSekolahTahun]);
 
           const cetakStudentInfo = useMemo(() => {
             if (filterNama === 'Semua') return { kelas: '-', jantina: '-' };
@@ -1642,13 +1660,24 @@
                     <h2 className="text-xl font-semibold">Analisis Pencapaian Keseluruhan Sekolah</h2>
                 </div>
                 
-                <div className="flex items-center gap-2 bg-purple-50 p-2 rounded-lg border border-purple-100">
-                    <FilterIcon className="w-4 h-4 text-purple-600" />
-                    <label className="text-sm font-medium text-purple-800">Bidang:</label>
-                    <select value={filterSekolahBidang} onChange={(e) => setFilterSekolahBidang(e.target.value)} className="p-1.5 text-sm border border-purple-200 rounded-md bg-white focus:ring-purple-500 focus:border-purple-500 font-medium text-gray-700 outline-none">
-                        <option value="Semua">Semua Bidang</option>
-                        {BIDANG_PILIHAN.map(b => <option key={b} value={b}>{b}</option>)}
-                    </select>
+                <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-2 bg-purple-50 p-2 rounded-lg border border-purple-100">
+                        <FilterIcon className="w-4 h-4 text-purple-600" />
+                        <label className="text-sm font-medium text-purple-800">Tahun:</label>
+                        <select value={filterSekolahTahun} onChange={(e) => setFilterSekolahTahun(e.target.value)} className="p-1.5 text-sm border border-purple-200 rounded-md bg-white focus:ring-purple-500 focus:border-purple-500 font-medium text-gray-700 outline-none">
+                            <option value="Semua">Semua Tahun</option>
+                            {uniqueTahun.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 bg-purple-50 p-2 rounded-lg border border-purple-100">
+                        <FilterIcon className="w-4 h-4 text-purple-600" />
+                        <label className="text-sm font-medium text-purple-800">Bidang:</label>
+                        <select value={filterSekolahBidang} onChange={(e) => setFilterSekolahBidang(e.target.value)} className="p-1.5 text-sm border border-purple-200 rounded-md bg-white focus:ring-purple-500 focus:border-purple-500 font-medium text-gray-700 outline-none">
+                            <option value="Semua">Semua Bidang</option>
+                            {BIDANG_PILIHAN.map(b => <option key={b} value={b}>{b}</option>)}
+                        </select>
+                    </div>
                 </div>
             </div>
             
