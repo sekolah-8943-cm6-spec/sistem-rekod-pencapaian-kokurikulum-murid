@@ -108,7 +108,7 @@
           '4BD', '4BL', '4BP', '5BD', '5BP', '6BD', '6BP'
         ];
 
-        // Komponen Carta Spider (Radar Chart) SVG yang telah diperbaiki visual labelnya
+        // Komponen Carta Spider (Radar Chart) SVG yang diperbaiki sepenuhnya (Lebar bertambah, teks tidak terpotong)
         const SpiderChart = ({ data }) => {
           const maxVal = Math.max(100, ...Object.values(data)) * 1.15; 
           const getR = (val) => (val / maxVal) * 80; 
@@ -118,19 +118,19 @@
           const DigitalR = getR(data['Digital'] || 0);
           const UnitR = getR(data['Unit Beruniform'] || 0);
 
-          // Pusat diletakkan di (120, 120) dalam viewBox yang lebih besar (0 0 240 240) untuk mengelakkan teks terkeluar
+          // Pusat diletakkan di (120, 120) dalam viewBox yang dilebarkan ke kiri (-55 0 350 240)
           const cx = 120;
           const cy = 120;
 
           const pts = `${cx},${cy - SukanR} ${cx + KoakademikR},${cy} ${cx},${cy + DigitalR} ${cx - UnitR},${cy}`;
 
           return (
-            <div className="w-full max-w-[350px] print:max-w-[150px] mx-auto bg-white p-4 print:p-0 rounded-xl border border-gray-100 shadow-sm print:border-none print:shadow-none flex flex-col items-center">
+            <div className="w-full max-w-[350px] print:max-w-[150px] mx-auto bg-white p-4 print:p-0 rounded-xl border border-gray-100 shadow-sm print:border-none print:shadow-none flex flex-col items-center overflow-visible">
               <div className="flex items-center gap-2 mb-2 text-indigo-700 w-full border-b pb-2 print:border-black print:pb-0.5 print:mb-0.5 print:justify-center">
                 <Activity className="w-5 h-5 print:hidden" />
                 <h3 className="font-semibold text-sm print:text-[9px] print:text-black">Visualisasi Markah</h3>
               </div>
-              <svg viewBox="0 0 240 240" className="w-full h-auto overflow-visible mt-2 print:mt-1">
+              <svg viewBox="-55 0 350 240" className="w-full h-auto overflow-visible mt-2 print:mt-1">
                 {/* Garisan Bulatan Grid */}
                 {[20, 40, 60, 80].map(r => (
                   <polygon key={r} points={`${cx},${cy-r} ${cx+r},${cy} ${cx},${cy+r} ${cx-r},${cy}`} fill="none" stroke="#e2e8f0" strokeWidth="1" className="print:stroke-gray-300" />
@@ -149,11 +149,11 @@
                 <circle cx={cx} cy={cy + DigitalR} r="3" fill="#4338ca" className="print:fill-black" />
                 <circle cx={cx - UnitR} cy={cy} r="3" fill="#4338ca" className="print:fill-black" />
 
-                {/* Label Teks dengan Koordinat Kedudukan yang Selamat */}
+                {/* Label Teks Terperinci yang Terpelihara dari Terpotong */}
                 <text x={cx} y={cy - 92} textAnchor="middle" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black print:text-[8px]">Sukan ({data['Sukan'] || 0})</text>
                 <text x={cx + 88} y={cy + 4} textAnchor="start" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black print:text-[8px]">Ko-akademik ({data['Ko-akademik'] || 0})</text>
                 <text x={cx} y={cy + 102} textAnchor="middle" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black print:text-[8px]">Digital ({data['Digital'] || 0})</text>
-                <text x={cx - 88} y={cy + 4} textAnchor="end" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black print:text-[8px]">Beruniform ({data['Unit Beruniform'] || 0})</text>
+                <text x={cx - 88} y={cy + 4} textAnchor="end" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black print:text-[8px]">Unit Beruniform ({data['Unit Beruniform'] || 0})</text>
               </svg>
             </div>
           );
@@ -1416,7 +1416,7 @@
                         </ul>
                      )}
                   </div>
-                  <div className="bg-white p-4 rounded-lg shadow-sm border border-amber-100">
+                  <div className="bg-white p-4 rounded-lg shadow-sm border border-pink-100">
                      <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-pink-500"></div> Tokoh Perempuan</h3>
                      {tokohPerempuan.length === 0 ? ( <p className="text-sm text-gray-400 italic">Tiada calon.</p> ) : (
                         <ul className="space-y-3">
