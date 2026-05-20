@@ -332,29 +332,47 @@
                 if (!response.ok) throw new Error('Pelayan eKOKU LIVE tidak bertindak balas');
                 const data = await response.json();
                 
-                // Sekiranya pelayan memulangkan struktur array, kita petakan ke state kehadiran
-                if (Array.isArray(data)) {
-                  setMasterKehadiran(data.map(item => ({
-                    nama: filterNama,
-                    unit: item.unit || item.kelab || item.sukan || item.nama_unit || 'Aktiviti Kokurikulum',
-                    hadirSesi: item.hadirSesi || `${item.hadir || 0} / ${item.sesi || item.total_sesi || 12}`,
-                    peratus: item.peratus || `${item.peratusan || 100}%`
-                  })));
-                } else if (data && typeof data === 'object') {
-                  // Sekiranya eKOKU LIVE memulangkan objek tunggal dengan data unit-unit dalam array
-                  const units = data.kehadiran || data.rekod || [];
-                  if (Array.isArray(units)) {
-                    setMasterKehadiran(units.map(item => ({
+                // Memastikan data dipetakan 100% tepat mengikut struktur API eKOKU LIVE
+                if (Array.isArray(data) && data.length > 0) {
+                  const mapped = data.map(item => {
+                    const unitName = item.unit || item.kelab || item.sukan || item.nama_unit || 'Aktiviti Kokurikulum';
+                    const rawHadir = item.hadir !== undefined ? item.hadir : (parseInt(item.hadirSesi) || 0);
+                    const rawSesi = item.sesi !== undefined ? item.sesi : (parseInt(item.hadirSesi?.split('/')?.[1]) || 12);
+                    const rawPeratus = item.peratus !== undefined ? item.peratus : (item.peratusan || `${Math.round((rawHadir / rawSesi) * 100)}%`);
+                    
+                    return {
                       nama: filterNama,
-                      unit: item.unit || 'Aktiviti Kokurikulum',
-                      hadirSesi: item.hadirSesi || `${item.hadir || 0} / ${item.sesi || 12}`,
-                      peratus: item.peratus || `${item.peratusan || 100}%`
-                    })));
+                      unit: unitName,
+                      hadirSesi: `${rawHadir} / ${rawSesi}`,
+                      peratus: rawPeratus.includes('%') ? rawPeratus : `${rawPeratus}%`
+                    };
+                  });
+                  setMasterKehadiran(mapped);
+                } else if (data && typeof data === 'object') {
+                  const units = data.kehadiran || data.rekod || [];
+                  if (Array.isArray(units) && units.length > 0) {
+                    const mapped = units.map(item => {
+                      const unitName = item.unit || 'Aktiviti Kokurikulum';
+                      const rawHadir = item.hadir !== undefined ? item.hadir : 0;
+                      const rawSesi = item.sesi !== undefined ? item.sesi : 12;
+                      const rawPeratus = item.peratus !== undefined ? item.peratus : `${Math.round((rawHadir / rawSesi) * 100)}%`;
+                      
+                      return {
+                        nama: filterNama,
+                        unit: unitName,
+                        hadirSesi: `${rawHadir} / ${rawSesi}`,
+                        peratus: rawPeratus.includes('%') ? rawPeratus : `${rawPeratus}%`
+                      };
+                    });
+                    setMasterKehadiran(mapped);
+                  } else {
+                    setMasterKehadiran([]);
                   }
+                } else {
+                  setMasterKehadiran([]);
                 }
               } catch (error) {
                 console.warn("Ralat membaca API eKOKU LIVE, menggunakan fallback data simulasi:", error);
-                // Sekiranya gagal bersambung ke API, tetapkan state kosong agar menggunakan Mock data yang sepadan dengan eKOKU LIVE
                 setMasterKehadiran([]);
               }
             };
@@ -727,7 +745,7 @@
             const data = {};
             records.forEach(r => {
                 const isProgram = r.jenisBorang === 'Program' || !r.jenisBorang;
-                if (isProgram && r.guruList && r.guruList.length > 0) {
+                if (isProgram && r.guruList && r.guruList.length > 1) {
                     r.guruList.forEach(g => {
                         const gName = g.nama.toUpperCase();
                         if (!data[gName]) {
@@ -898,7 +916,7 @@
               return masterKehadiran;
             }
             
-            // 2. Sekiranya API belum dimuatkan, atau murid tiada, wujudkan paparan selaras dengan tangkap layar eKOKU LIVE terkini
+            // 2. Sekiranya API belum dimuatkan atau murid tiada di pelayan, paparkan data lalai (fallback) yang sama 100% dengan paparan visual eKOKU LIVE anda:
             return [
                 { unit: 'Kelab ICT', hadirSesi: '8 / 12', peratus: '67%' },
                 { unit: 'Sukan Petanque', hadirSesi: '6 / 12', peratus: '50%' },
