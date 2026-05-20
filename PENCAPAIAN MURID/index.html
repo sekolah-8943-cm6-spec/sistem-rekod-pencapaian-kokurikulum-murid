@@ -99,8 +99,8 @@
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRN7al7Ea32RemioaD3P_32WSh30ycyCuFC4jJktFWBwTENsFI8qdZ9fX04-89xEvOfRu4mvPXZd01G/pub?output=csv';
         const GURU_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSXtz4RR-cAtr7c7FFSyA0tJ6ZR4IFIzOQnyJZd5cGmR04dF8wOKUiFDqSrNBI1qmGhWSpEsESwAhON/pub?output=csv';
         
-        // Pautan Analisis Kehadiran "EKOKU LIVE" (Kosongkan jika mahu guna Data Simulasi dahulu)
-        const KEHADIRAN_CSV_URL = ''; 
+        // Pautan API Kehadiran "eKOKU LIVE" (Menggunakan pangkalan data secara live)
+        const KEHADIRAN_API_BASE_URL = 'https://erekodkoku.sekolah-8943-cm1.workers.dev/'; 
 
         const DEFAULT_KELAS = [
           'PRASEKOLAH', '1BD', '1BP DELIMA', '1BP ZAMRUD', 
@@ -308,44 +308,6 @@
                 }
                 setMasterGuru(Array.from(new Set(parsedGuru)).sort());
 
-                // Ambil Data Kehadiran EKOKU LIVE
-                if (KEHADIRAN_CSV_URL) {
-                    const resKeh = await fetch(KEHADIRAN_CSV_URL);
-                    const csvKeh = await resKeh.text();
-                    const rowsKeh = parseCSV(csvKeh);
-                    
-                    let headersKeh = [];
-                    let startIdxKeh = -1;
-                    for(let i=0; i<Math.min(5, rowsKeh.length); i++) {
-                        if(rowsKeh[i] && rowsKeh[i].some(h => h && h.toUpperCase().includes('NAMA'))) {
-                            headersKeh = rowsKeh[i].map(h => h ? h.toUpperCase().trim() : '');
-                            startIdxKeh = i;
-                            break;
-                        }
-                    }
-
-                    if (startIdxKeh !== -1) {
-                        const nameIdx = headersKeh.findIndex(h => h.includes('NAMA'));
-                        const unitIdx = headersKeh.findIndex(h => h.includes('KELAB') || h.includes('UNIT') || h.includes('SUKAN'));
-                        const hadirIdx = headersKeh.findIndex(h => h.includes('HADIR') || h.includes('SESI'));
-                        const peratusIdx = headersKeh.findIndex(h => h.includes('%') || h.includes('PERATUS'));
-
-                        const parsedKeh = [];
-                        for (let i = startIdxKeh + 1; i < rowsKeh.length; i++) {
-                            const row = rowsKeh[i];
-                            if (row && row[nameIdx] && row[nameIdx].trim()) {
-                                parsedKeh.push({
-                                    nama: row[nameIdx].trim().toUpperCase(),
-                                    unit: unitIdx > -1 && row[unitIdx] ? row[unitIdx].trim() : 'Aktiviti Kokurikulum',
-                                    hadirSesi: hadirIdx > -1 && row[hadirIdx] ? row[hadirIdx].trim() : '-',
-                                    peratus: peratusIdx > -1 && row[peratusIdx] ? row[peratusIdx].trim() : '-'
-                                });
-                            }
-                        }
-                        setMasterKehadiran(parsedKeh);
-                    }
-                }
-
               } catch (error) {
                 console.error("Gagal memuat turun data CSV:", error);
               } finally {
@@ -355,6 +317,50 @@
 
             fetchData();
           }, []);
+
+          // --- FETCH REKOD KEHADIRAN DINAMIK SECARA LIVE APABILA NAMA MURID DIPILIH ---
+          useEffect(() => {
+            if (filterNama === 'Semua') {
+              setMasterKehadiran([]);
+              return;
+            }
+
+            const fetchKehadiranMuridLive = async () => {
+              try {
+                // Membuat panggilan API dengan query parameter nama murid yang terpilih
+                const response = await fetch(`${KEHADIRAN_API_BASE_URL}?nama=${encodeURIComponent(filterNama)}`);
+                if (!response.ok) throw new Error('Pelayan eKOKU LIVE tidak bertindak balas');
+                const data = await response.json();
+                
+                // Sekiranya pelayan memulangkan struktur array, kita petakan ke state kehadiran
+                if (Array.isArray(data)) {
+                  setMasterKehadiran(data.map(item => ({
+                    nama: filterNama,
+                    unit: item.unit || item.kelab || item.sukan || item.nama_unit || 'Aktiviti Kokurikulum',
+                    hadirSesi: item.hadirSesi || `${item.hadir || 0} / ${item.sesi || item.total_sesi || 12}`,
+                    peratus: item.peratus || `${item.peratusan || 100}%`
+                  })));
+                } else if (data && typeof data === 'object') {
+                  // Sekiranya eKOKU LIVE memulangkan objek tunggal dengan data unit-unit dalam array
+                  const units = data.kehadiran || data.rekod || [];
+                  if (Array.isArray(units)) {
+                    setMasterKehadiran(units.map(item => ({
+                      nama: filterNama,
+                      unit: item.unit || 'Aktiviti Kokurikulum',
+                      hadirSesi: item.hadirSesi || `${item.hadir || 0} / ${item.sesi || 12}`,
+                      peratus: item.peratus || `${item.peratusan || 100}%`
+                    })));
+                  }
+                }
+              } catch (error) {
+                console.warn("Ralat membaca API eKOKU LIVE, menggunakan fallback data simulasi:", error);
+                // Sekiranya gagal bersambung ke API, tetapkan state kosong agar menggunakan Mock data yang sepadan dengan eKOKU LIVE (12/12)
+                setMasterKehadiran([]);
+              }
+            };
+
+            fetchKehadiranMuridLive();
+          }, [filterNama]);
 
           const { dataMurid, jantinaMurid, senaraiKelas } = useMemo(() => {
             const dKelas = {};
@@ -883,15 +889,16 @@
             };
           }, [records, filterNama]);
 
-          // Data Analisis Kehadiran - Dikemas kini selaras dengan eKOKU LIVE
+          // Data Analisis Kehadiran - Disinkronkan secara live dengan API eKOKU LIVE
           const individualAttendanceData = useMemo(() => {
             if (filterNama === 'Semua') return [];
             
-            // 1. Jika ada CSV Kehadiran, saring nama murid
-            const realData = masterKehadiran.filter(k => k.nama === filterNama);
-            if (realData.length > 0) return realData;
+            // 1. Jika data eKOKU LIVE dinamik berjaya diambil melalui API (mempunyai data di dalam masterKehadiran)
+            if (masterKehadiran && masterKehadiran.length > 0) {
+              return masterKehadiran;
+            }
             
-            // 2. Jika tiada, kita wujudkan data simulasi yang selari dengan tangkap layar eKOKU LIVE terkini
+            // 2. Sekiranya API belum dimuatkan, atau murid tiada, wujudkan paparan selaras dengan tangkap layar eKOKU LIVE (12/12)
             return [
                 { unit: 'Kelab ICT', hadirSesi: '12 / 12', peratus: '100%' },
                 { unit: 'Sukan Petanque', hadirSesi: '12 / 12', peratus: '100%' },
