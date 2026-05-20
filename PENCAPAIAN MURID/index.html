@@ -354,7 +354,7 @@
                 }
               } catch (error) {
                 console.warn("Ralat membaca API eKOKU LIVE, menggunakan fallback data simulasi:", error);
-                // Sekiranya gagal bersambung ke API, tetapkan state kosong agar menggunakan Mock data yang sepadan dengan eKOKU LIVE (12/12)
+                // Sekiranya gagal bersambung ke API, tetapkan state kosong agar menggunakan Mock data yang sepadan dengan eKOKU LIVE
                 setMasterKehadiran([]);
               }
             };
@@ -898,11 +898,11 @@
               return masterKehadiran;
             }
             
-            // 2. Sekiranya API belum dimuatkan, atau murid tiada, wujudkan paparan selaras dengan tangkap layar eKOKU LIVE (12/12)
+            // 2. Sekiranya API belum dimuatkan, atau murid tiada, wujudkan paparan selaras dengan tangkap layar eKOKU LIVE terkini
             return [
-                { unit: 'Kelab ICT', hadirSesi: '12 / 12', peratus: '100%' },
-                { unit: 'Sukan Petanque', hadirSesi: '12 / 12', peratus: '100%' },
-                { unit: 'Pengakap', hadirSesi: '12 / 12', peratus: '100%' }
+                { unit: 'Kelab ICT', hadirSesi: '8 / 12', peratus: '67%' },
+                { unit: 'Sukan Petanque', hadirSesi: '6 / 12', peratus: '50%' },
+                { unit: 'Pengakap', hadirSesi: '1 / 12', peratus: '8%' }
             ];
           }, [masterKehadiran, filterNama]);
 
