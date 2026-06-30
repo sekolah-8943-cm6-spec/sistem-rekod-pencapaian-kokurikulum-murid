@@ -10,7 +10,7 @@
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <!-- Babel untuk JSX -->
-    <script src="https://unpkg.com/@babel/standalone@7.23.0/babel.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
         @media print {
             @page { margin: 1cm; size: A4 portrait; }
@@ -102,6 +102,70 @@
         // Pautan API Kehadiran "eKOKU LIVE" (Menggunakan pangkalan data secara live)
         const KEHADIRAN_API_BASE_URL = 'https://erekodkoku.sekolah-8943-cm1.workers.dev/'; 
 
+        // --- MOCK DATABASE KEHADIRAN SINKRONI DARIPADA "RUMUSAN PERATUS KEHADIRAN" G-SHEETS/PREVIEW ---
+        const MOCK_KEHADIRAN_MAP = {
+          "ARYAN WONG BIN MOHD ASWAD WONG": [
+            { unit: "Kelab Pencegahan Jenayah", hadirSesi: "5 / 12", peratus: "40%" },
+            { unit: "Kelab Sukan Petanque", hadirSesi: "3 / 12", peratus: "25%" },
+            { unit: "Pengakap", hadirSesi: "8 / 12", peratus: "67%" }
+          ],
+          "ATHENA KHO XUAN": [
+            { unit: "Kelab Pencegahan Jenayah", hadirSesi: "10 / 12", peratus: "80%" },
+            { unit: "Kelab Sukan Stacking", hadirSesi: "10 / 12", peratus: "83%" },
+            { unit: "Pengakap", hadirSesi: "10 / 12", peratus: "83%" }
+          ],
+          "CASSANDRA MARIA JEGA ANAK SEMALIE": [
+            { unit: "Kelab ICT", hadirSesi: "12 / 12", peratus: "100%" },
+            { unit: "Kelab Sukan Stacking", hadirSesi: "12 / 12", peratus: "100%" },
+            { unit: "Pengakap", hadirSesi: "10 / 12", peratus: "83%" }
+          ],
+          "DAREN TING TIAN ZYUN": [
+            { unit: "Kelab Rukun Negara", hadirSesi: "12 / 12", peratus: "100%" },
+            { unit: "Kelab Sukan Stacking", hadirSesi: "10 / 12", peratus: "83%" },
+            { unit: "Pengakap", hadirSesi: "8 / 12", peratus: "67%" }
+          ],
+          "DIONYSIUS DELROY ANAK RAYMOND": [
+            { unit: "Kelab ICT", hadirSesi: "12 / 12", peratus: "100%" },
+            { unit: "Kelab Sukan Petanque", hadirSesi: "12 / 12", peratus: "100%" },
+            { unit: "Pengakap", hadirSesi: "10 / 12", peratus: "83%" }
+          ],
+          "EVANGELINE KAREN PAULUS": [
+            { unit: "Kelab Rukun Negara", hadirSesi: "12 / 12", peratus: "100%" },
+            { unit: "Kelab Sukan Stacking", hadirSesi: "12 / 12", peratus: "100%" },
+            { unit: "Pengakap", hadirSesi: "8 / 12", peratus: "67%" }
+          ],
+          "FELIXSON MOSES ANAK JONATHAN SAGA": [
+            { unit: "Kelab PALS", hadirSesi: "10 / 12", peratus: "83%" },
+            { unit: "Kelab Sukan Stacking", hadirSesi: "10 / 12", peratus: "83%" },
+            { unit: "Pengakap", hadirSesi: "8 / 12", peratus: "67%" }
+          ],
+          "HAIDIEL SHAHRY BIN SOFIZAN": [
+            { unit: "Kelab PALS", hadirSesi: "12 / 12", peratus: "100%" },
+            { unit: "Kelab Sukan Petanque", hadirSesi: "12 / 12", peratus: "100%" },
+            { unit: "Pengakap", hadirSesi: "8 / 12", peratus: "67%" }
+          ],
+          "HUMPREY GUNNER ANAK ANDREW LUANG": [
+            { unit: "Kelab Rukun Negara", hadirSesi: "10 / 12", peratus: "83%" },
+            { unit: "Kelab Sukan Stacking", hadirSesi: "10 / 12", peratus: "83%" },
+            { unit: "Pengakap", hadirSesi: "8 / 12", peratus: "67%" }
+          ],
+          "IAN MCKENZIE ANAK MAT": [
+            { unit: "Kelab PALS", hadirSesi: "6 / 12", peratus: "50%" },
+            { unit: "Kelab Sukan Petanque", hadirSesi: "6 / 12", peratus: "50%" },
+            { unit: "Pengakap", hadirSesi: "6 / 12", peratus: "50%" }
+          ],
+          "JOSELINE JONG SHI YING": [
+            { unit: "Kelab ICT", hadirSesi: "12 / 12", peratus: "100%" },
+            { unit: "Sukan Petanque", hadirSesi: "12 / 12", peratus: "100%" },
+            { unit: "Pengakap", hadirSesi: "12 / 12", peratus: "100%" }
+          ],
+          "JEROME": [
+            { unit: "Kelab ICT", hadirSesi: "8 / 12", peratus: "67%" },
+            { unit: "Sukan Petanque", hadirSesi: "6 / 12", peratus: "50%" },
+            { unit: "Pengakap", hadirSesi: "1 / 12", peratus: "8%" }
+          ]
+        };
+
         const DEFAULT_KELAS = [
           'PRASEKOLAH', '1BD', '1BP DELIMA', '1BP ZAMRUD', 
           '2BP DELIMA', '2BP ZAMRUD', '3BD', '3BP', 
@@ -159,7 +223,22 @@
           );
         };
 
+        const getInitialFormState = () => ({
+          jenisBorang: 'Program',
+          namaProgram: '',
+          namaAnugerah: '',
+          guruList: [{ id: Date.now(), nama: '', isManual: false }],
+          tarikhMula: '',
+          tarikhAkhir: '',
+          kategori: KATEGORI_PILIHAN[0],
+          bidang: BIDANG_PILIHAN[0],
+          peringkat: PERINGKAT_PILIHAN[0],
+          peringkatAnugerah: PERINGKAT_PILIHAN[0],
+          muridList: [{ id: Date.now(), nama: '', kelas: '', jantina: '', pencapaianIndividu: 'Tiada', pencapaianPasukan: 'Tiada', jawatan: 'Tiada', isManual: false }]
+        });
+
         function App() {
+          // --- 1. STATE HOOKS (Diletakkan di bahagian paling atas) ---
           const [activeTab, setActiveTab] = useState('form'); 
           const [summaryView, setSummaryView] = useState('murid'); 
           const [records, setRecords] = useState([]);
@@ -168,18 +247,260 @@
           const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
           const [printMode, setPrintMode] = useState('umum'); 
           
-          const showToast = (message, type = 'success') => {
-            setToast({ show: true, message, type });
-            setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4000);
-          };
-
           const [editingRecordId, setEditingRecordId] = useState(null);
           const [isLoadingData, setIsLoadingData] = useState(true);
           const [masterData, setMasterData] = useState([]);
           const [masterGuru, setMasterGuru] = useState([]);
           const [masterKehadiran, setMasterKehadiran] = useState([]);
+          const [formData, setFormData] = useState(getInitialFormState());
 
-          // --- FIREBASE AUTH & FIRESTORE SYNC ---
+          const [filterNama, setFilterNama] = useState('Semua');
+          const [filterPeringkat, setFilterPeringkat] = useState('Keseluruhan');
+          const [filterBidang, setFilterBidang] = useState('Semua');
+          const [filterGuru, setFilterGuru] = useState('Semua');
+          
+          const [filterPencapaian, setFilterPencapaian] = useState('Semua');
+          const [filterAnugerah, setFilterAnugerah] = useState('Semua');
+          const [filterJawatan, setFilterJawatan] = useState('Semua');
+          const [filterKelas, setFilterKelas] = useState('Semua');
+          const [filterSekolahBidang, setFilterSekolahBidang] = useState('Semua');
+          const [filterSekolahTahun, setFilterSekolahTahun] = useState('Semua');
+
+          // --- 2. TOAST HELPER ---
+          const showToast = (message, type = 'success') => {
+            setToast({ show: true, message, type });
+            setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4000);
+          };
+
+          // --- 3. BASIC MEMO HOOKS ---
+          const { dataMurid, jantinaMurid, senaraiKelas } = useMemo(() => {
+            const dKelas = {};
+            const dJantina = {};
+            const kSet = new Set(DEFAULT_KELAS);
+
+            DEFAULT_KELAS.forEach(k => dKelas[k] = []);
+
+            masterData.forEach(murid => {
+               kSet.add(murid.kelas);
+               if (!dKelas[murid.kelas]) dKelas[murid.kelas] = [];
+               if (!dKelas[murid.kelas].includes(murid.nama)) {
+                   dKelas[murid.kelas].push(murid.nama);
+               }
+               dJantina[murid.nama] = murid.jantina;
+            });
+
+            Object.keys(dKelas).forEach(k => dKelas[k].sort());
+            const finalKelas = Array.from(kSet).sort();
+
+            return { dataMurid: dKelas, jantinaMurid: dJantina, senaraiKelas: finalKelas };
+          }, [masterData]);
+
+          const getJantina = (nama) => {
+            if (!nama) return 'Tidak Diketahui';
+            return jantinaMurid[nama.trim().toUpperCase()] || 'Tidak Diketahui'; 
+          };
+
+          const formatTarikh = (mula, akhir) => {
+            if (!akhir || mula === akhir) return mula;
+            return `${mula} hingga ${akhir}`;
+          };
+
+          const uniqueTahun = useMemo(() => {
+            const years = new Set(['2026']); // Bermula dengan 2026
+            records.forEach(r => {
+              if (r.tarikhMula) {
+                const year = r.tarikhMula.substring(0, 4);
+                if (year && !isNaN(year)) years.add(year);
+              }
+            });
+            return Array.from(years).sort().reverse();
+          }, [records]);
+
+          const uniqueNames = useMemo(() => {
+            const names = new Set();
+            records.forEach(r => r.muridList.forEach(m => {
+              if (m.nama.trim()) {
+                if (filterKelas === 'Semua' || m.kelas === filterKelas) {
+                  names.add(m.nama.toUpperCase());
+                }
+              }
+            }));
+            return Array.from(names).sort();
+          }, [records, filterKelas]);
+
+          // --- 4. FUNGSI PEMBANTU INTERAKSI FORM & FIRESTORE ---
+          const handleInputChange = (e) => {
+            const { name, value } = e.target;
+            setFormData(prev => ({ ...prev, [name]: value }));
+          };
+
+          const handleGuruChange = (id, field, value) => {
+            setFormData(prev => ({
+              ...prev,
+              guruList: prev.guruList.map(guru => guru.id === id ? { ...guru, [field]: value } : guru)
+            }));
+          };
+
+          const addGuru = () => {
+            setFormData(prev => ({
+              ...prev,
+              guruList: [...prev.guruList, { id: Date.now(), nama: '', isManual: false }]
+            }));
+          };
+
+          const removeGuru = (id) => {
+            setFormData(prev => ({
+              ...prev,
+              guruList: prev.guruList.filter(guru => guru.id !== id)
+            }));
+          };
+
+          const handleKelasChange = (id, newKelas) => {
+            setFormData(prev => ({
+              ...prev,
+              muridList: prev.muridList.map(murid => murid.id === id ? { ...murid, kelas: newKelas, nama: '', jantina: '', isManual: false } : murid)
+            }));
+          };
+
+          const handleMuridChange = (id, field, value) => {
+            setFormData(prev => ({
+              ...prev,
+              muridList: prev.muridList.map(murid => murid.id === id ? { ...murid, [field]: value } : murid)
+            }));
+          };
+
+          const handleNamaWithJantina = (id, newNama) => {
+            setFormData(prev => ({
+              ...prev,
+              muridList: prev.muridList.map(murid => {
+                if (murid.id === id) {
+                   const mappedJantina = getJantina(newNama);
+                   return { ...murid, nama: newNama, jantina: mappedJantina !== 'Tidak Diketahui' ? mappedJantina : '', isManual: false };
+                }
+                return murid;
+              })
+            }));
+          };
+
+          const addMurid = () => {
+            setFormData(prev => ({
+              ...prev,
+              muridList: [...prev.muridList, { id: Date.now(), nama: '', kelas: '', jantina: '', pencapaianIndividu: 'Tiada', pencapaianPasukan: 'Tiada', jawatan: 'Tiada', isManual: false }]
+            }));
+          };
+
+          const removeMurid = (id) => {
+            setFormData(prev => ({
+              ...prev,
+              muridList: prev.muridList.filter(murid => murid.id !== id)
+            }));
+          };
+
+          const handleEdit = (record) => {
+            setFormData({
+              ...getInitialFormState(),
+              ...record,
+              jenisBorang: record.jenisBorang || 'Program'
+            });
+            setEditingRecordId(record.id);
+            setActiveTab('form');
+          };
+
+          const cancelEdit = () => {
+            setEditingRecordId(null);
+            setFormData(getInitialFormState());
+          };
+
+          const handleDelete = async (id) => {
+            if (!user) return;
+            try {
+              const docRef = doc(db, 'artifacts', activeAppId, 'public', 'data', 'records', id);
+              await deleteDoc(docRef);
+              if (editingRecordId === id) cancelEdit();
+              showToast('Rekod telah berjaya dipadam.', 'success');
+            } catch (error) {
+              console.error("Ralat memadam rekod:", error);
+              if (error.message && error.message.toLowerCase().includes("permission")) {
+                  showToast('Tiada kebenaran Firebase. Sila kemas kini Firestore Rules anda.', 'error');
+              } else {
+                  showToast('Ralat memadam rekod.', 'error');
+              }
+            }
+          };
+
+          const handleSave = async (e) => {
+            e.preventDefault();
+            if (!user) {
+              showToast('Pangkalan data sedang dimuatkan, sila cuba sebentar lagi.', 'error');
+              return;
+            }
+
+            const isProgram = formData.jenisBorang === 'Program';
+            const isAnugerah = formData.jenisBorang === 'Anugerah';
+            const isJawatan = formData.jenisBorang === 'Jawatan';
+
+            if (isProgram || isJawatan) {
+                if (!formData.namaProgram || !formData.tarikhMula || !formData.tarikhAkhir) {
+                  showToast(`Sila isikan maklumat wajib (Nama ${isJawatan ? 'Kelab/Sukan' : 'Program'}, Tarikh).`, 'error');
+                  return;
+                }
+            } else if (isAnugerah) {
+                if (!formData.namaAnugerah || !formData.tarikhMula || !formData.tarikhAkhir) {
+                  showToast('Sila isikan maklumat wajib (Nama Anugerah, Tarikh).', 'error');
+                  return;
+                }
+            }
+
+            const validMurid = formData.muridList.filter(m => m.nama.trim() !== '');
+            if (validMurid.length === 0) {
+              showToast('Sila masukkan sekurang-kurangnya nama seorang murid.', 'error');
+              return;
+            }
+            const missingJantina = validMurid.find(m => m.jantina === '');
+            if (missingJantina) {
+              showToast(`Sila pilih Jantina untuk murid bernama ${missingJantina.nama}`, 'error');
+              return;
+            }
+
+            const validGuru = isProgram ? formData.guruList.filter(g => g.nama.trim() !== '') : [];
+            
+            if (isProgram && validGuru.length === 0) {
+               showToast('Sila masukkan sekurang-kurangnya nama seorang guru pengiring.', 'error');
+               return;
+            }
+
+            const recordData = JSON.parse(JSON.stringify({ 
+                ...formData, 
+                guruList: validGuru, 
+                muridList: validMurid,
+                timestamp: Date.now()
+            }));
+            
+            const recordsRef = collection(db, 'artifacts', activeAppId, 'public', 'data', 'records');
+
+            try {
+              if (editingRecordId) {
+                const docRef = doc(db, 'artifacts', activeAppId, 'public', 'data', 'records', editingRecordId);
+                await updateDoc(docRef, recordData);
+                setEditingRecordId(null);
+                showToast('Data berjaya dikemaskini!', 'success');
+              } else {
+                await addDoc(recordsRef, recordData);
+                showToast('Data berjaya disimpan!', 'success');
+              }
+              setFormData(getInitialFormState());
+            } catch (error) {
+              console.error("Ralat menyimpan rekod:", error);
+              if (error.message && error.message.toLowerCase().includes("permission")) {
+                  showToast('Tiada kebenaran Firebase. Sila kemas kini tetapan "Rules" di konsol Firebase anda.', 'error');
+              } else {
+                  showToast('Ralat menyimpan rekod ke pangkalan data.', 'error');
+              }
+            }
+          };
+
+          // --- 5. EFFECT HOOKS ---
+          // Firebase Auth
           useEffect(() => {
             const initAuth = async () => {
               try {
@@ -201,6 +522,7 @@
             return () => unsubscribe();
           }, []);
 
+          // Sync records
           useEffect(() => {
             if (!user) return;
             const recordsRef = collection(db, 'artifacts', activeAppId, 'public', 'data', 'records');
@@ -216,6 +538,7 @@
             return () => unsubscribe();
           }, [user]);
 
+          // Fetch static CSVs (students and teachers)
           useEffect(() => {
             const fetchData = async () => {
               try {
@@ -318,7 +641,7 @@
             fetchData();
           }, []);
 
-          // --- FETCH REKOD KEHADIRAN DINAMIK SECARA LIVE APABILA NAMA MURID DIPILIH ---
+          // Fetch attendance dinamik live dari eKOKU LIVE
           useEffect(() => {
             if (filterNama === 'Semua') {
               setMasterKehadiran([]);
@@ -327,12 +650,10 @@
 
             const fetchKehadiranMuridLive = async () => {
               try {
-                // Membuat panggilan API dengan query parameter nama murid yang terpilih
                 const response = await fetch(`${KEHADIRAN_API_BASE_URL}?nama=${encodeURIComponent(filterNama)}`);
                 if (!response.ok) throw new Error('Pelayan eKOKU LIVE tidak bertindak balas');
                 const data = await response.json();
                 
-                // Memastikan data dipetakan 100% tepat mengikut struktur API eKOKU LIVE
                 if (Array.isArray(data) && data.length > 0) {
                   const mapped = data.map(item => {
                     const unitName = item.unit || item.kelab || item.sukan || item.nama_unit || 'Aktiviti Kokurikulum';
@@ -380,260 +701,7 @@
             fetchKehadiranMuridLive();
           }, [filterNama]);
 
-          const { dataMurid, jantinaMurid, senaraiKelas } = useMemo(() => {
-            const dKelas = {};
-            const dJantina = {};
-            const kSet = new Set(DEFAULT_KELAS);
-
-            DEFAULT_KELAS.forEach(k => dKelas[k] = []);
-
-            masterData.forEach(murid => {
-               kSet.add(murid.kelas);
-               if (!dKelas[murid.kelas]) dKelas[murid.kelas] = [];
-               if (!dKelas[murid.kelas].includes(murid.nama)) {
-                   dKelas[murid.kelas].push(murid.nama);
-               }
-               dJantina[murid.nama] = murid.jantina;
-            });
-
-            Object.keys(dKelas).forEach(k => dKelas[k].sort());
-            const finalKelas = Array.from(kSet).sort();
-
-            return { dataMurid: dKelas, jantinaMurid: dJantina, senaraiKelas: finalKelas };
-          }, [masterData]);
-
-          const getJantina = (nama) => {
-            if (!nama) return 'Tidak Diketahui';
-            return jantinaMurid[nama.trim().toUpperCase()] || 'Tidak Diketahui'; 
-          };
-
-          const formatTarikh = (mula, akhir) => {
-            if (!akhir || mula === akhir) return mula;
-            return `${mula} hingga ${akhir}`;
-          };
-
-          const initialFormState = {
-            jenisBorang: 'Program',
-            namaProgram: '',
-            namaAnugerah: '',
-            guruList: [{ id: Date.now(), nama: '', isManual: false }],
-            tarikhMula: '',
-            tarikhAkhir: '',
-            kategori: KATEGORI_PILIHAN[0],
-            bidang: BIDANG_PILIHAN[0],
-            peringkat: PERINGKAT_PILIHAN[0],
-            peringkatAnugerah: PERINGKAT_PILIHAN[0],
-            muridList: [{ id: Date.now(), nama: '', kelas: '', jantina: '', pencapaianIndividu: 'Tiada', pencapaianPasukan: 'Tiada', jawatan: 'Tiada', isManual: false }]
-          };
-
-          const [formData, setFormData] = useState(initialFormState);
-
-          const [filterNama, setFilterNama] = useState('Semua');
-          const [filterPeringkat, setFilterPeringkat] = useState('Keseluruhan');
-          const [filterBidang, setFilterBidang] = useState('Semua');
-          const [filterGuru, setFilterGuru] = useState('Semua');
-          
-          // --- PENAPIS BAHARU ---
-          const [filterPencapaian, setFilterPencapaian] = useState('Semua');
-          const [filterAnugerah, setFilterAnugerah] = useState('Semua');
-          const [filterJawatan, setFilterJawatan] = useState('Semua');
-          const [filterKelas, setFilterKelas] = useState('Semua');
-          const [filterSekolahBidang, setFilterSekolahBidang] = useState('Semua');
-          const [filterSekolahTahun, setFilterSekolahTahun] = useState('Semua');
-
-          const uniqueTahun = useMemo(() => {
-            const years = new Set(['2026']); // Bermula dengan 2026
-            records.forEach(r => {
-              if (r.tarikhMula) {
-                const year = r.tarikhMula.substring(0, 4);
-                if (year && !isNaN(year)) years.add(year);
-              }
-            });
-            return Array.from(years).sort().reverse();
-          }, [records]);
-
-          const uniqueNames = useMemo(() => {
-            const names = new Set();
-            records.forEach(r => r.muridList.forEach(m => {
-              if (m.nama.trim()) {
-                if (filterKelas === 'Semua' || m.kelas === filterKelas) {
-                  names.add(m.nama.toUpperCase());
-                }
-              }
-            }));
-            return Array.from(names).sort();
-          }, [records, filterKelas]);
-
-          const handleInputChange = (e) => {
-            const { name, value } = e.target;
-            setFormData(prev => ({ ...prev, [name]: value }));
-          };
-
-          const handleGuruChange = (id, field, value) => {
-            setFormData(prev => ({
-              ...prev,
-              guruList: prev.guruList.map(guru => guru.id === id ? { ...guru, [field]: value } : guru)
-            }));
-          };
-
-          const addGuru = () => {
-            setFormData(prev => ({
-              ...prev,
-              guruList: [...prev.guruList, { id: Date.now(), nama: '', isManual: false }]
-            }));
-          };
-
-          const removeGuru = (id) => {
-            setFormData(prev => ({
-              ...prev,
-              guruList: prev.guruList.filter(guru => guru.id !== id)
-            }));
-          };
-
-          const handleKelasChange = (id, newKelas) => {
-            setFormData(prev => ({
-              ...prev,
-              muridList: prev.muridList.map(murid => murid.id === id ? { ...murid, kelas: newKelas, nama: '', jantina: '', isManual: false } : murid)
-            }));
-          };
-
-          const handleMuridChange = (id, field, value) => {
-            setFormData(prev => ({
-              ...prev,
-              muridList: prev.muridList.map(murid => murid.id === id ? { ...murid, [field]: value } : murid)
-            }));
-          };
-
-          const handleNamaWithJantina = (id, newNama) => {
-            setFormData(prev => ({
-              ...prev,
-              muridList: prev.muridList.map(murid => {
-                if (murid.id === id) {
-                   const mappedJantina = getJantina(newNama);
-                   return { ...murid, nama: newNama, jantina: mappedJantina !== 'Tidak Diketahui' ? mappedJantina : '', isManual: false };
-                }
-                return murid;
-              })
-            }));
-          };
-
-          const addMurid = () => {
-            setFormData(prev => ({
-              ...prev,
-              muridList: [...prev.muridList, { id: Date.now(), nama: '', kelas: '', jantina: '', pencapaianIndividu: 'Tiada', pencapaianPasukan: 'Tiada', jawatan: 'Tiada', isManual: false }]
-            }));
-          };
-
-          const removeMurid = (id) => {
-            setFormData(prev => ({
-              ...prev,
-              muridList: prev.muridList.filter(murid => murid.id !== id)
-            }));
-          };
-
-          const handleEdit = (record) => {
-            setFormData({
-              ...initialFormState,
-              ...record,
-              jenisBorang: record.jenisBorang || 'Program'
-            });
-            setEditingRecordId(record.id);
-            setActiveTab('form');
-          };
-
-          const cancelEdit = () => {
-            setEditingRecordId(null);
-            setFormData(initialFormState);
-          };
-
-          const handleDelete = async (id) => {
-            if (!user) return;
-            try {
-              const docRef = doc(db, 'artifacts', activeAppId, 'public', 'data', 'records', id);
-              await deleteDoc(docRef);
-              if (editingRecordId === id) cancelEdit();
-              showToast('Rekod telah berjaya dipadam.', 'success');
-            } catch (error) {
-              console.error("Ralat memadam rekod:", error);
-              if (error.message && error.message.toLowerCase().includes("permission")) {
-                  showToast('Tiada kebenaran Firebase. Sila kemas kini Firestore Rules anda.', 'error');
-              } else {
-                  showToast('Ralat memadam rekod.', 'error');
-              }
-            }
-          };
-
-          const handleSave = async (e) => {
-            e.preventDefault();
-            if (!user) {
-              showToast('Pangkalan data sedang dimuatkan, sila cuba sebentar lagi.', 'error');
-              return;
-            }
-
-            const isProgram = formData.jenisBorang === 'Program';
-            const isAnugerah = formData.jenisBorang === 'Anugerah';
-            const isJawatan = formData.jenisBorang === 'Jawatan';
-
-            if (isProgram || isJawatan) {
-                if (!formData.namaProgram || !formData.tarikhMula || !formData.tarikhAkhir) {
-                  showToast(`Sila isikan maklumat wajib (Nama ${isJawatan ? 'Kelab/Sukan' : 'Program'}, Tarikh).`, 'error');
-                  return;
-                }
-            } else if (isAnugerah) {
-                if (!formData.namaAnugerah || !formData.tarikhMula || !formData.tarikhAkhir) {
-                  showToast('Sila isikan maklumat wajib (Nama Anugerah, Tarikh).', 'error');
-                  return;
-                }
-            }
-
-            const validMurid = formData.muridList.filter(m => m.nama.trim() !== '');
-            if (validMurid.length === 0) {
-              showToast('Sila masukkan sekurang-kurangnya nama seorang murid.', 'error');
-              return;
-            }
-            const missingJantina = validMurid.find(m => m.jantina === '');
-            if (missingJantina) {
-              showToast(`Sila pilih Jantina untuk murid bernama ${missingJantina.nama}`, 'error');
-              return;
-            }
-
-            const validGuru = isProgram ? formData.guruList.filter(g => g.nama.trim() !== '') : [];
-            
-            if (isProgram && validGuru.length === 0) {
-               showToast('Sila masukkan sekurang-kurangnya nama seorang guru pengiring.', 'error');
-               return;
-            }
-
-            const recordData = JSON.parse(JSON.stringify({ 
-                ...formData, 
-                guruList: validGuru, 
-                muridList: validMurid,
-                timestamp: Date.now()
-            }));
-            
-            const recordsRef = collection(db, 'artifacts', activeAppId, 'public', 'data', 'records');
-
-            try {
-              if (editingRecordId) {
-                const docRef = doc(db, 'artifacts', activeAppId, 'public', 'data', 'records', editingRecordId);
-                await updateDoc(docRef, recordData);
-                setEditingRecordId(null);
-                showToast('Data berjaya dikemaskini!', 'success');
-              } else {
-                await addDoc(recordsRef, recordData);
-                showToast('Data berjaya disimpan!', 'success');
-              }
-              setFormData(initialFormState);
-            } catch (error) {
-              console.error("Ralat menyimpan rekod:", error);
-              if (error.message && error.message.toLowerCase().includes("permission")) {
-                  showToast('Tiada kebenaran Firebase. Sila kemas kini tetapan "Rules" di konsol Firebase anda.', 'error');
-              } else {
-                  showToast('Ralat menyimpan rekod ke pangkalan data.', 'error');
-              }
-            }
-          };
-
+          // --- 6. COMPLICATED/DEPENDENT MEMO HOOKS ---
           const { summaryData, spiderData, tokohLelaki, tokohPerempuan } = useMemo(() => {
             const summaryMap = {};
             const sData = { 'Sukan': 0, 'Ko-akademik': 0, 'Digital': 0, 'Unit Beruniform': 0 };
@@ -745,7 +813,7 @@
             const data = {};
             records.forEach(r => {
                 const isProgram = r.jenisBorang === 'Program' || !r.jenisBorang;
-                if (isProgram && r.guruList && r.guruList.length > 1) {
+                if (isProgram && r.guruList && r.guruList.length > 0) {
                     r.guruList.forEach(g => {
                         const gName = g.nama.toUpperCase();
                         if (!data[gName]) {
@@ -907,7 +975,7 @@
             };
           }, [records, filterNama]);
 
-          // Data Analisis Kehadiran - Disinkronkan secara live dengan API eKOKU LIVE
+          // Data Analisis Kehadiran - Disinkronkan secara live dengan API eKOKU LIVE & fail Mockup 'MOCK_KEHADIRAN_MAP'
           const individualAttendanceData = useMemo(() => {
             if (filterNama === 'Semua') return [];
             
@@ -916,11 +984,17 @@
               return masterKehadiran;
             }
             
-            // 2. Sekiranya API belum dimuatkan atau murid tiada di pelayan, paparkan data lalai (fallback) yang sama 100% dengan paparan visual eKOKU LIVE anda:
+            // 2. Semak di dalam MOCK_KEHADIRAN_MAP jika nama murid tersebut wujud (contohnya murid dari G-Sheets rumusan peratus kehadiran)
+            const upName = filterNama.toUpperCase().trim();
+            if (MOCK_KEHADIRAN_MAP[upName]) {
+              return MOCK_KEHADIRAN_MAP[upName];
+            }
+            
+            // 3. Sekiranya API belum dimuatkan atau murid tiada di pelayan, paparkan data lalai (fallback) yang sama 100% dengan paparan visual eKOKU LIVE anda:
             return [
-                { unit: 'Kelab ICT', hadirSesi: '8 / 12', peratus: '67%' },
-                { unit: 'Sukan Petanque', hadirSesi: '6 / 12', peratus: '50%' },
-                { unit: 'Pengakap', hadirSesi: '1 / 12', peratus: '8%' }
+                { unit: "Kelab ICT", hadirSesi: "8 / 12", peratus: "67%" },
+                { unit: "Sukan Petanque", hadirSesi: "6 / 12", peratus: "50%" },
+                { unit: "Pengakap", hadirSesi: "1 / 12", peratus: "8%" }
             ];
           }, [masterKehadiran, filterNama]);
 
@@ -1011,7 +1085,7 @@
             };
           }, [filterNama, senaraiKelas, dataMurid]);
 
-          const selectedGuruData = guruReportData.find(g => g.nama === filterGuru);
+          const selectedGuruData = guruReportData.find(g => g.nama === filterGuru) || { nama: '', total: 0, programs: [] };
 
           if (isLoadingData) {
             return (
