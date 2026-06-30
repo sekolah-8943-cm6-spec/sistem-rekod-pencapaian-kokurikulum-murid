@@ -106,52 +106,52 @@
         const MOCK_KEHADIRAN_MAP = {
           "ARYAN WONG BIN MOHD ASWAD WONG": [
             { unit: "Kelab Pencegahan Jenayah", hadirSesi: "5 / 12", peratus: "40%" },
-            { unit: "Kelab Sukan Petanque", hadirSesi: "3 / 12", peratus: "25%" },
+            { unit: "Sukan Petanque", hadirSesi: "3 / 12", peratus: "25%" },
             { unit: "Pengakap", hadirSesi: "8 / 12", peratus: "67%" }
           ],
           "ATHENA KHO XUAN": [
             { unit: "Kelab Pencegahan Jenayah", hadirSesi: "10 / 12", peratus: "80%" },
-            { unit: "Kelab Sukan Stacking", hadirSesi: "10 / 12", peratus: "83%" },
+            { unit: "Sukan Stacking", hadirSesi: "10 / 12", peratus: "83%" },
             { unit: "Pengakap", hadirSesi: "10 / 12", peratus: "83%" }
           ],
           "CASSANDRA MARIA JEGA ANAK SEMALIE": [
             { unit: "Kelab ICT", hadirSesi: "12 / 12", peratus: "100%" },
-            { unit: "Kelab Sukan Stacking", hadirSesi: "12 / 12", peratus: "100%" },
+            { unit: "Sukan Stacking", hadirSesi: "12 / 12", peratus: "100%" },
             { unit: "Pengakap", hadirSesi: "10 / 12", peratus: "83%" }
           ],
           "DAREN TING TIAN ZYUN": [
             { unit: "Kelab Rukun Negara", hadirSesi: "12 / 12", peratus: "100%" },
-            { unit: "Kelab Sukan Stacking", hadirSesi: "10 / 12", peratus: "83%" },
+            { unit: "Sukan Stacking", hadirSesi: "10 / 12", peratus: "83%" },
             { unit: "Pengakap", hadirSesi: "8 / 12", peratus: "67%" }
           ],
           "DIONYSIUS DELROY ANAK RAYMOND": [
             { unit: "Kelab ICT", hadirSesi: "12 / 12", peratus: "100%" },
-            { unit: "Kelab Sukan Petanque", hadirSesi: "12 / 12", peratus: "100%" },
+            { unit: "Sukan Petanque", hadirSesi: "12 / 12", peratus: "100%" },
             { unit: "Pengakap", hadirSesi: "10 / 12", peratus: "83%" }
           ],
           "EVANGELINE KAREN PAULUS": [
             { unit: "Kelab Rukun Negara", hadirSesi: "12 / 12", peratus: "100%" },
-            { unit: "Kelab Sukan Stacking", hadirSesi: "12 / 12", peratus: "100%" },
+            { unit: "Sukan Stacking", hadirSesi: "12 / 12", peratus: "100%" },
             { unit: "Pengakap", hadirSesi: "8 / 12", peratus: "67%" }
           ],
           "FELIXSON MOSES ANAK JONATHAN SAGA": [
-            { unit: "Kelab PALS", hadirSesi: "10 / 12", peratus: "83%" },
-            { unit: "Kelab Sukan Stacking", hadirSesi: "10 / 12", peratus: "83%" },
+            { unit: "Kelab Pencinta Alam Sekitar (PALS)", hadirSesi: "10 / 12", peratus: "83%" },
+            { unit: "Sukan Stacking", hadirSesi: "10 / 12", peratus: "83%" },
             { unit: "Pengakap", hadirSesi: "8 / 12", peratus: "67%" }
           ],
           "HAIDIEL SHAHRY BIN SOFIZAN": [
-            { unit: "Kelab PALS", hadirSesi: "12 / 12", peratus: "100%" },
-            { unit: "Kelab Sukan Petanque", hadirSesi: "12 / 12", peratus: "100%" },
+            { unit: "Kelab Pencinta Alam Sekitar (PALS)", hadirSesi: "12 / 12", peratus: "100%" },
+            { unit: "Sukan Petanque", hadirSesi: "12 / 12", peratus: "100%" },
             { unit: "Pengakap", hadirSesi: "8 / 12", peratus: "67%" }
           ],
           "HUMPREY GUNNER ANAK ANDREW LUANG": [
             { unit: "Kelab Rukun Negara", hadirSesi: "10 / 12", peratus: "83%" },
-            { unit: "Kelab Sukan Stacking", hadirSesi: "10 / 12", peratus: "83%" },
+            { unit: "Sukan Stacking", hadirSesi: "10 / 12", peratus: "83%" },
             { unit: "Pengakap", hadirSesi: "8 / 12", peratus: "67%" }
           ],
           "IAN MCKENZIE ANAK MAT": [
-            { unit: "Kelab PALS", hadirSesi: "6 / 12", peratus: "50%" },
-            { unit: "Kelab Sukan Petanque", hadirSesi: "6 / 12", peratus: "50%" },
+            { unit: "Kelab Pencinta Alam Sekitar (PALS)", hadirSesi: "6 / 12", peratus: "50%" },
+            { unit: "Sukan Petanque", hadirSesi: "6 / 12", peratus: "50%" },
             { unit: "Pengakap", hadirSesi: "6 / 12", peratus: "50%" }
           ],
           "JOSELINE JONG SHI YING": [
@@ -984,10 +984,18 @@
               return masterKehadiran;
             }
             
-            // 2. Semak di dalam MOCK_KEHADIRAN_MAP jika nama murid tersebut wujud (contohnya murid dari G-Sheets rumusan peratus kehadiran)
+            // 2. Semak di dalam MOCK_KEHADIRAN_MAP jika nama murid tersebut wujud (menggunakan padanan separa bertingkat untuk lebih robust)
             const upName = filterNama.toUpperCase().trim();
             if (MOCK_KEHADIRAN_MAP[upName]) {
               return MOCK_KEHADIRAN_MAP[upName];
+            }
+
+            // Menyokong padanan separa / substring (cth: "ARYAN WONG" sepadan dengan "ARYAN WONG BIN MOHD ASWAD WONG")
+            const foundKey = Object.keys(MOCK_KEHADIRAN_MAP).find(key => 
+              upName.includes(key) || key.includes(upName)
+            );
+            if (foundKey) {
+              return MOCK_KEHADIRAN_MAP[foundKey];
             }
             
             // 3. Sekiranya API belum dimuatkan atau murid tiada di pelayan, paparkan data lalai (fallback) yang sama 100% dengan paparan visual eKOKU LIVE anda:
@@ -2108,6 +2116,7 @@
                      </div>
                  </div>
              </div>
+
          ) : (
              <div className="h-full flex flex-col">
                  <div className="flex flex-col items-center border-b-[3px] border-black pb-2 mb-3">
@@ -2242,7 +2251,7 @@
                                         <td className={`border border-black p-0.5 text-center font-bold ${peratusNum < 50 ? 'text-red-600' : 'text-emerald-700'}`}>{r.peratus}</td>
                                      </tr>
                                   );
-                               })}
+                                })}
                             </tbody>
                          </table>
                      </div>
