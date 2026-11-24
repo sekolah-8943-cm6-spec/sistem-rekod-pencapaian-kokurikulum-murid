@@ -74,6 +74,7 @@
         const Edit = ({className}) => <Icon className={className}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></Icon>;
         const Printer = ({className}) => <Icon className={className}><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></Icon>;
         const Star = ({className}) => <Icon className={className}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></Icon>;
+        const XIcon = ({className}) => <Icon className={className}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Icon>;
 
         // Senarai pilihan berdasarkan keperluan
         const KATEGORI_PILIHAN = ['Individu', 'Berpasukan', 'Individu dan Berpasukan'];
@@ -182,7 +183,6 @@
           const DigitalR = getR(data['Digital'] || 0);
           const UnitR = getR(data['Unit Beruniform'] || 0);
 
-          // Pusat diletakkan di (120, 120) dalam viewBox yang dilebarkan ke kiri (-55 0 350 240)
           const cx = 120;
           const cy = 120;
 
@@ -195,25 +195,20 @@
                 <h3 className="font-semibold text-sm print:text-[9px] print:text-black">Visualisasi Markah</h3>
               </div>
               <svg viewBox="-55 0 350 240" className="w-full h-auto overflow-visible mt-2 print:mt-1">
-                {/* Garisan Bulatan Grid */}
                 {[20, 40, 60, 80].map(r => (
                   <polygon key={r} points={`${cx},${cy-r} ${cx+r},${cy} ${cx},${cy+r} ${cx-r},${cy}`} fill="none" stroke="#e2e8f0" strokeWidth="1" className="print:stroke-gray-300" />
                 ))}
                 
-                {/* Paksi Paksi Bersilang */}
                 <line x1={cx} y1={cy - 85} x2={cx} y2={cy + 85} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="3 3" className="print:stroke-gray-400" />
                 <line x1={cx - 85} y1={cy} x2={cx + 85} y2={cy} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="3 3" className="print:stroke-gray-400" />
 
-                {/* Poligon Data */}
                 <polygon points={pts} fill="rgba(79, 70, 229, 0.4)" stroke="#4f46e5" strokeWidth="2" strokeLinejoin="round" className="print:stroke-black print:fill-gray-300" />
                 
-                {/* Titik Data */}
                 <circle cx={cx} cy={cy - SukanR} r="3" fill="#4338ca" className="print:fill-black" />
                 <circle cx={cx + KoakademikR} cy={cy} r="3" fill="#4338ca" className="print:fill-black" />
                 <circle cx={cx} cy={cy + DigitalR} r="3" fill="#4338ca" className="print:fill-black" />
                 <circle cx={cx - UnitR} cy={cy} r="3" fill="#4338ca" className="print:fill-black" />
 
-                {/* Label Teks Terperinci yang Terpelihara dari Terpotong */}
                 <text x={cx} y={cy - 92} textAnchor="middle" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black print:text-[8px]">Sukan ({data['Sukan'] || 0})</text>
                 <text x={cx + 88} y={cy + 4} textAnchor="start" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black print:text-[8px]">Ko-akademik ({data['Ko-akademik'] || 0})</text>
                 <text x={cx} y={cy + 102} textAnchor="middle" fontSize="10" fontWeight="bold" fill="#475569" className="print:fill-black print:text-[8px]">Digital ({data['Digital'] || 0})</text>
@@ -238,7 +233,7 @@
         });
 
         function App() {
-          // --- 1. STATE HOOKS (Diletakkan di bahagian paling atas) ---
+          // --- 1. STATE HOOKS ---
           const [activeTab, setActiveTab] = useState('form'); 
           const [summaryView, setSummaryView] = useState('murid'); 
           const [records, setRecords] = useState([]);
@@ -246,6 +241,7 @@
           
           const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
           const [printMode, setPrintMode] = useState('umum'); 
+          const [selectedMuridModalRecord, setSelectedMuridModalRecord] = useState(null);
           
           const [editingRecordId, setEditingRecordId] = useState(null);
           const [isLoadingData, setIsLoadingData] = useState(true);
@@ -306,7 +302,7 @@
           };
 
           const uniqueTahun = useMemo(() => {
-            const years = new Set(['2026']); // Bermula dengan 2026
+            const years = new Set(['2026']);
             records.forEach(r => {
               if (r.tarikhMula) {
                 const year = r.tarikhMula.substring(0, 4);
@@ -417,6 +413,7 @@
               const docRef = doc(db, 'artifacts', activeAppId, 'public', 'data', 'records', id);
               await deleteDoc(docRef);
               if (editingRecordId === id) cancelEdit();
+              if (selectedMuridModalRecord?.id === id) setSelectedMuridModalRecord(null);
               showToast('Rekod telah berjaya dipadam.', 'success');
             } catch (error) {
               console.error("Ralat memadam rekod:", error);
@@ -500,7 +497,6 @@
           };
 
           // --- 5. EFFECT HOOKS ---
-          // Firebase Auth
           useEffect(() => {
             const initAuth = async () => {
               try {
@@ -522,7 +518,6 @@
             return () => unsubscribe();
           }, []);
 
-          // Sync records
           useEffect(() => {
             if (!user) return;
             const recordsRef = collection(db, 'artifacts', activeAppId, 'public', 'data', 'records');
@@ -538,7 +533,6 @@
             return () => unsubscribe();
           }, [user]);
 
-          // Fetch static CSVs (students and teachers)
           useEffect(() => {
             const fetchData = async () => {
               try {
@@ -596,7 +590,6 @@
                   setMasterData(parsedData);
                 }
 
-                // Ambil Data Guru secara Live dari pautan Google Sheets
                 const responseGuru = await fetch(GURU_CSV_URL);
                 const csvTextGuru = await responseGuru.text();
                 const rowsGuru = parseCSV(csvTextGuru);
@@ -641,7 +634,6 @@
             fetchData();
           }, []);
 
-          // Fetch attendance dinamik live dari eKOKU LIVE
           useEffect(() => {
             if (filterNama === 'Semua') {
               setMasterKehadiran([]);
@@ -832,7 +824,6 @@
             return Object.values(data).sort((a,b) => a.nama.localeCompare(b.nama));
           }, [records]);
 
-          // Data Laporan Individu / Umum
           const individualReportData = useMemo(() => {
             if (filterNama === 'Semua') return { program: [], jawatan: [], anugerah: [] };
             
@@ -915,7 +906,6 @@
             };
           }, [records, filterNama]);
 
-          // Data Laporan Tokoh
           const allIndividualReportData = useMemo(() => {
             if (filterNama === 'Semua') return { program: [], jawatan: [], anugerah: [] };
             
@@ -975,22 +965,18 @@
             };
           }, [records, filterNama]);
 
-          // Data Analisis Kehadiran - Disinkronkan secara live dengan API eKOKU LIVE & fail Mockup 'MOCK_KEHADIRAN_MAP'
           const individualAttendanceData = useMemo(() => {
             if (filterNama === 'Semua') return [];
             
-            // 1. Jika data eKOKU LIVE dinamik berjaya diambil melalui API (mempunyai data di dalam masterKehadiran)
             if (masterKehadiran && masterKehadiran.length > 0) {
               return masterKehadiran;
             }
             
-            // 2. Semak di dalam MOCK_KEHADIRAN_MAP jika nama murid tersebut wujud (menggunakan padanan separa bertingkat untuk lebih robust)
             const upName = filterNama.toUpperCase().trim();
             if (MOCK_KEHADIRAN_MAP[upName]) {
               return MOCK_KEHADIRAN_MAP[upName];
             }
 
-            // Menyokong padanan separa / substring (cth: "ARYAN WONG" sepadan dengan "ARYAN WONG BIN MOHD ASWAD WONG")
             const foundKey = Object.keys(MOCK_KEHADIRAN_MAP).find(key => 
               upName.includes(key) || key.includes(upName)
             );
@@ -998,7 +984,6 @@
               return MOCK_KEHADIRAN_MAP[foundKey];
             }
             
-            // 3. Sekiranya API belum dimuatkan atau murid tiada di pelayan, paparkan data lalai (fallback) yang sama 100% dengan paparan visual eKOKU LIVE anda:
             return [
                 { unit: "Kelab ICT", hadirSesi: "8 / 12", peratus: "67%" },
                 { unit: "Sukan Petanque", hadirSesi: "6 / 12", peratus: "50%" },
@@ -1006,7 +991,6 @@
             ];
           }, [masterKehadiran, filterNama]);
 
-          // --- DATA ANALISIS PENCAPAIAN SEKOLAH KESELURUHAN ---
           const schoolAnalysisData = useMemo(() => {
             const stats = {
               'Daerah': { Johan: 0, NaibJohan: 0, Ke3: 0, Ke4: 0, Ke5: 0, Penyertaan: 0, Total: 0 },
@@ -1018,13 +1002,11 @@
 
             records.forEach(r => {
                 const isProgram = r.jenisBorang === 'Program' || !r.jenisBorang;
-                if (!isProgram) return; // Abaikan Jawatan & Anugerah Khas
-                if (!stats[r.peringkat]) return; // Hanya baca 5 peringkat teratas
+                if (!isProgram) return; 
+                if (!stats[r.peringkat]) return; 
                 
-                // Penapis Bidang untuk Analisis Sekolah
                 if (filterSekolahBidang !== 'Semua' && r.bidang !== filterSekolahBidang) return;
 
-                // Penapis Tahun untuk Analisis Sekolah
                 if (filterSekolahTahun !== 'Semua') {
                     const recordYear = r.tarikhMula ? r.tarikhMula.substring(0, 4) : '';
                     if (recordYear !== filterSekolahTahun) return;
@@ -1053,7 +1035,6 @@
             return stats;
           }, [records, filterSekolahBidang, filterSekolahTahun]);
 
-          // --- DATA SPIDER CHART SEKOLAH ---
           const schoolSpiderData = useMemo(() => {
             const sData = { 'Sukan': 0, 'Ko-akademik': 0, 'Digital': 0, 'Unit Beruniform': 0 };
 
@@ -1443,7 +1424,14 @@
                          <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs font-medium">{per}</span>
                       </td>
                       <td className="px-3 py-3 text-center border-r font-semibold text-gray-700">
-                         {record.muridList.length} Murid
+                         <button
+                           type="button"
+                           onClick={() => setSelectedMuridModalRecord(record)}
+                           className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white border border-blue-200 text-xs font-bold transition cursor-pointer"
+                           title="Tekan untuk melihat dan simpan senarai murid dalam PDF"
+                         >
+                           {record.muridList.length} Murid
+                         </button>
                       </td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex justify-center gap-2">
@@ -1466,11 +1454,111 @@
     );
   };
 
+  const renderMuridListModal = () => {
+    if (!selectedMuridModalRecord) return null;
+
+    const record = selectedMuridModalRecord;
+    const isProgram = record.jenisBorang === 'Program' || !record.jenisBorang;
+    const isJawatan = record.jenisBorang === 'Jawatan';
+    const isAnugerah = record.jenisBorang === 'Anugerah';
+    const title = isProgram || isJawatan ? record.namaProgram : record.namaAnugerah;
+    const per = isProgram || isJawatan ? record.peringkat : record.peringkatAnugerah;
+
+    return (
+      <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 print:hidden">
+        <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
+          <div className="px-6 py-4 bg-blue-900 text-white flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-bold">Senarai Murid ({record.muridList.length} Orang)</h3>
+              <p className="text-xs text-blue-200 mt-0.5">{title} • {per} • {formatTarikh(record.tarikhMula, record.tarikhAkhir)}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedMuridModalRecord(null)}
+              className="p-1.5 rounded-lg bg-blue-800 hover:bg-blue-700 text-white transition"
+              title="Tutup"
+            >
+              <XIcon className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="p-6 overflow-y-auto flex-1">
+            <div className="overflow-x-auto border border-slate-200 rounded-xl">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-slate-100 text-slate-700 uppercase text-xs border-b">
+                  <tr>
+                    <th className="px-3 py-2.5 text-center w-12 border-r">Bil</th>
+                    <th className="px-4 py-2.5 border-r">Nama Murid</th>
+                    <th className="px-3 py-2.5 text-center border-r">Kelas</th>
+                    <th className="px-3 py-2.5 text-center border-r">Jantina</th>
+                    {isProgram && (
+                      <>
+                        <th className="px-3 py-2.5 text-center border-r">Pencapaian Indv.</th>
+                        <th className="px-3 py-2.5 text-center">Pencapaian Pskn.</th>
+                      </>
+                    )}
+                    {isJawatan && (
+                      <th className="px-3 py-2.5 text-center">Jawatan Disandang</th>
+                    )}
+                    {isAnugerah && (
+                      <th className="px-3 py-2.5 text-center">Status Anugerah</th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {record.muridList.map((murid, idx) => (
+                    <tr key={murid.id || idx} className="hover:bg-slate-50">
+                      <td className="px-3 py-2.5 text-center font-medium text-slate-500 border-r">{idx + 1}</td>
+                      <td className="px-4 py-2.5 font-semibold text-slate-900 border-r">{murid.nama}</td>
+                      <td className="px-3 py-2.5 text-center text-slate-700 border-r">{murid.kelas || '-'}</td>
+                      <td className="px-3 py-2.5 text-center text-slate-700 border-r">{murid.jantina || '-'}</td>
+                      {isProgram && (
+                        <>
+                          <td className="px-3 py-2.5 text-center font-medium text-blue-700 border-r">{murid.pencapaianIndividu || 'Tiada'}</td>
+                          <td className="px-3 py-2.5 text-center font-medium text-indigo-700">{murid.pencapaianPasukan || 'Tiada'}</td>
+                        </>
+                      )}
+                      {isJawatan && (
+                        <td className="px-3 py-2.5 text-center font-bold text-emerald-700">{murid.jawatan || 'Tiada'}</td>
+                      )}
+                      {isAnugerah && (
+                        <td className="px-3 py-2.5 text-center font-bold text-amber-700">Penerima Anugerah</td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setSelectedMuridModalRecord(null)}
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-slate-200 hover:bg-slate-300 text-slate-800 transition"
+            >
+              Tutup
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPrintMode('rekod_murid');
+                setTimeout(() => window.print(), 100);
+              }}
+              className="px-5 py-2 rounded-lg text-sm font-bold bg-red-600 hover:bg-red-700 text-white shadow flex items-center gap-2 transition"
+            >
+              <Printer className="w-4 h-4" /> Simpan PDF
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderSummary = () => {
     return (
       <div className="space-y-6">
         
-        {/* Toggle View: Murid / Guru / Sekolah */}
         <div className="flex justify-center mb-2">
             <div className="bg-white p-1.5 rounded-xl shadow-sm border border-gray-200 inline-flex flex-wrap justify-center gap-1">
                <button onClick={() => setSummaryView('murid')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${summaryView==='murid'?'bg-blue-600 text-white shadow':'text-gray-500 hover:bg-gray-100'}`}>
@@ -1513,7 +1601,7 @@
                                          setTimeout(() => window.print(), 100); 
                                      }} 
                                      className="p-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition" 
-                                     title="Jana Laporan Tokoh (Semua Rekod)"
+                                     title="Simpan PDF Laporan Tokoh (Semua Rekod)"
                                    >
                                        <Printer className="w-4 h-4" />
                                    </button>
@@ -1542,7 +1630,7 @@
                                          setTimeout(() => window.print(), 100); 
                                      }} 
                                      className="p-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition" 
-                                     title="Jana Laporan Tokoh (Semua Rekod)"
+                                     title="Simpan PDF Laporan Tokoh (Semua Rekod)"
                                    >
                                        <Printer className="w-4 h-4" />
                                    </button>
@@ -1628,9 +1716,10 @@
 
                   <div className="mt-4 pt-4 border-t border-slate-200 flex justify-end">
                     <button 
+                      type="button"
                       onClick={() => {
                         if (filterNama === 'Semua') {
-                          showToast('Sila pilih nama murid spesifik pada ruang Nama Murid di atas untuk menjana Laporan.', 'error');
+                          showToast('Sila pilih nama murid spesifik pada ruang Nama Murid di atas untuk Simpan PDF.', 'error');
                         } else {
                           setPrintMode('umum');
                           setTimeout(() => window.print(), 100);
@@ -1638,7 +1727,7 @@
                       }}
                       className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition ${filterNama === 'Semua' ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white shadow-sm'}`}
                     >
-                      <Printer className="w-4 h-4" /> Jana Laporan Murid (PDF)
+                      <Printer className="w-4 h-4" /> Simpan PDF
                     </button>
                   </div>
                 </div>
@@ -1699,7 +1788,6 @@
             </div>
         </>
         ) : summaryView === 'guru' ? (
-        /* PAPARAN RUMUSAN GURU PENGIRING */
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="flex items-center justify-between gap-2 mb-6 border-b pb-4">
                 <div className="flex items-center gap-2 text-emerald-700">
@@ -1710,16 +1798,17 @@
 
             <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-100 mb-6 flex flex-col md:flex-row gap-4 items-end">
                 <div className="flex-1 w-full">
-                    <label className="block text-xs font-medium text-emerald-800 mb-1">Pilih Nama Guru untuk Melihat / Menjana Laporan</label>
+                    <label className="block text-xs font-medium text-emerald-800 mb-1">Pilih Nama Guru untuk Melihat / Simpan PDF</label>
                     <select value={filterGuru} onChange={e => setFilterGuru(e.target.value)} className="w-full p-2 text-sm border border-emerald-300 rounded-md bg-white">
                         <option value="Semua">Tunjuk Semua Guru</option>
                         {guruReportData.map(g => <option key={g.nama} value={g.nama}>{g.nama}</option>)}
                     </select>
                 </div>
                 <button 
+                  type="button"
                   onClick={() => {
                     if (filterGuru === 'Semua') {
-                      showToast('Sila pilih nama guru yang spesifik untuk menjana Laporan PDF.', 'error');
+                      showToast('Sila pilih nama guru yang spesifik untuk Simpan PDF.', 'error');
                     } else {
                       setPrintMode('guru');
                       setTimeout(() => window.print(), 100);
@@ -1727,7 +1816,7 @@
                   }}
                   className={`flex items-center justify-center gap-2 px-6 py-2 rounded-md text-sm font-bold transition w-full md:w-auto shrink-0 ${filterGuru === 'Semua' ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'}`}
                 >
-                  <Printer className="w-4 h-4" /> Jana Laporan Guru (PDF)
+                  <Printer className="w-4 h-4" /> Simpan PDF
                 </button>
             </div>
 
@@ -1787,7 +1876,6 @@
             )}
         </div>
         ) : (
-        /* PAPARAN RUMUSAN SEKOLAH */
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b pb-4">
                 <div className="flex items-center gap-2 text-purple-700">
@@ -1890,10 +1978,92 @@
           {activeTab === 'records' && renderRecordList()}
           {activeTab === 'summary' && renderSummary()}
         </main>
+
+        {renderMuridListModal()}
       </div>
 
       <div className="hidden print:block w-full bg-white text-black p-4 font-sans print-1-page">
-         {printMode === 'guru' && selectedGuruData ? (
+         {printMode === 'rekod_murid' && selectedMuridModalRecord ? (
+             <div className="h-full flex flex-col">
+                 <div className="flex flex-col items-center border-b-[3px] border-black pb-2 mb-3">
+                     <div className="w-20 h-20 flex items-center justify-center overflow-hidden mb-1">
+                         <img src="logo sekolah.jpg" alt="Logo Sekolah" className="w-full h-full object-contain" onError={(e) => { e.target.onerror = null; e.target.src = 'latest 6.5.jpg'; }} />
+                     </div>
+                     <h1 className="text-xl font-extrabold uppercase text-center">Sekolah Kebangsaan Pendidikan Khas Miri</h1>
+                     <p className="text-[11px] font-bold mt-1 bg-gray-800 text-white inline-block px-3 py-0.5 rounded">SENARAI MURID TERLIBAT / PENERIMA</p>
+                 </div>
+
+                 <div className="mb-4 border-l-4 border-black pl-3">
+                     <table className="text-xs">
+                        <tbody>
+                           <tr><td className="w-32 font-bold py-0.5">Program / Kelab / Anugerah</td><td className="w-3">:</td><td className="py-0.5 font-semibold">{(selectedMuridModalRecord.jenisBorang === 'Program' || selectedMuridModalRecord.jenisBorang === 'Jawatan' || !selectedMuridModalRecord.jenisBorang) ? selectedMuridModalRecord.namaProgram : selectedMuridModalRecord.namaAnugerah}</td></tr>
+                           <tr><td className="w-32 font-bold py-0.5">Bidang / Peringkat</td><td className="w-3">:</td><td className="py-0.5">{selectedMuridModalRecord.bidang} ({(selectedMuridModalRecord.jenisBorang === 'Program' || selectedMuridModalRecord.jenisBorang === 'Jawatan' || !selectedMuridModalRecord.jenisBorang) ? selectedMuridModalRecord.peringkat : selectedMuridModalRecord.peringkatAnugerah})</td></tr>
+                           <tr><td className="w-32 font-bold py-0.5">Tarikh / Sesi</td><td className="w-3">:</td><td className="py-0.5">{formatTarikh(selectedMuridModalRecord.tarikhMula, selectedMuridModalRecord.tarikhAkhir)}</td></tr>
+                           <tr><td className="w-32 font-bold py-0.5">Bilangan Murid</td><td className="w-3">:</td><td className="py-0.5 font-bold">{selectedMuridModalRecord.muridList.length} Orang</td></tr>
+                        </tbody>
+                     </table>
+                 </div>
+
+                 <div className="mb-4 flex-1">
+                     <h3 className="font-bold text-xs mb-1.5 bg-gray-200 p-1.5">Senarai Murid</h3>
+                     <table className="w-full text-[10px] border-collapse border border-black mt-1">
+                        <thead>
+                           <tr className="bg-gray-100">
+                              <th className="border border-black p-1 text-center w-8">Bil</th>
+                              <th className="border border-black p-1 text-left">Nama Murid</th>
+                              <th className="border border-black p-1 text-center">Kelas</th>
+                              <th className="border border-black p-1 text-center">Jantina</th>
+                              {(selectedMuridModalRecord.jenisBorang === 'Program' || !selectedMuridModalRecord.jenisBorang) && (
+                                <>
+                                  <th className="border border-black p-1 text-center">Pencapaian Indv.</th>
+                                  <th className="border border-black p-1 text-center">Pencapaian Pskn.</th>
+                                </>
+                              )}
+                              {selectedMuridModalRecord.jenisBorang === 'Jawatan' && (
+                                <th className="border border-black p-1 text-center">Jawatan Disandang</th>
+                              )}
+                              {selectedMuridModalRecord.jenisBorang === 'Anugerah' && (
+                                <th className="border border-black p-1 text-center">Status</th>
+                              )}
+                           </tr>
+                        </thead>
+                        <tbody>
+                           {selectedMuridModalRecord.muridList.map((m, idx) => (
+                              <tr key={m.id || idx}>
+                                 <td className="border border-black p-1 text-center">{idx + 1}</td>
+                                 <td className="border border-black p-1 font-medium">{m.nama}</td>
+                                 <td className="border border-black p-1 text-center">{m.kelas || '-'}</td>
+                                 <td className="border border-black p-1 text-center">{m.jantina || '-'}</td>
+                                 {(selectedMuridModalRecord.jenisBorang === 'Program' || !selectedMuridModalRecord.jenisBorang) && (
+                                   <>
+                                     <td className="border border-black p-1 text-center font-semibold">{m.pencapaianIndividu || 'Tiada'}</td>
+                                     <td className="border border-black p-1 text-center font-semibold">{m.pencapaianPasukan || 'Tiada'}</td>
+                                   </>
+                                 )}
+                                 {selectedMuridModalRecord.jenisBorang === 'Jawatan' && (
+                                   <td className="border border-black p-1 text-center font-bold">{m.jawatan || 'Tiada'}</td>
+                                 )}
+                                 {selectedMuridModalRecord.jenisBorang === 'Anugerah' && (
+                                   <td className="border border-black p-1 text-center font-bold">Penerima Anugerah</td>
+                                 )}
+                              </tr>
+                           ))}
+                        </tbody>
+                     </table>
+                 </div>
+
+                 <div className="mt-4 flex justify-end shrink-0">
+                     <div className="text-center w-56">
+                         <p className="mb-10 text-[11px] text-left">Disahkan oleh,</p>
+                         <p className="border-b border-black w-full"></p>
+                         <p className="mt-1 font-bold text-[11px]">( AZIZ BIN TAHIR )</p>
+                         <p className="text-[10px] mt-0.5 font-semibold uppercase">Guru Besar</p>
+                         <p className="text-[10px] font-semibold uppercase">Sekolah Kebangsaan Pendidikan Khas Miri</p>
+                         <p className="text-[9px] mt-1 text-gray-500">Tarikh Cetakan: {new Date().toLocaleDateString('ms-MY')}</p>
+                     </div>
+                 </div>
+             </div>
+         ) : printMode === 'guru' && selectedGuruData ? (
              <div className="h-full flex flex-col">
                  <div className="flex flex-col items-center border-b-[3px] border-black pb-2 mb-3">
                      <div className="w-20 h-20 flex items-center justify-center overflow-hidden mb-1">
@@ -2065,7 +2235,6 @@
                          </table>
                      </div>
 
-                     {/* JADUAL KEHADIRAN (TOKOH) */}
                      <div>
                          <h3 className="font-bold text-[10px] mb-0.5 bg-gray-200 p-1 border-l-2 border-black uppercase">D. Rekod Kehadiran Kokurikulum (Sistem EKOKU)</h3>
                          <table className="w-full text-[9px] border-collapse border border-black">
@@ -2139,7 +2308,7 @@
 
                  <div className="mb-2 flex-1 flex flex-col gap-1.5">
                      <div>
-                         <h3 className="font-bold text-[10px] mb-0.5 bg-gray-200 p-1 border-l-2 border-black uppercase">A. Pencapaian Pertandingan (Tertinggi Setiap Bidang)</h3>
+                         <h3 className="font-bold text-[10px] mb-0.5 bg-gray-200 p-1 border-l-2 border-black uppercase">A. Semua Penyertaan & Pencapaian Pertandingan</h3>
                          <table className="w-full text-[9px] border-collapse border border-black">
                             <thead>
                                <tr className="bg-gray-100">
@@ -2153,7 +2322,9 @@
                                </tr>
                             </thead>
                             <tbody>
-                               {individualReportData.program.map((r, i) => (
+                               {allIndividualReportData.program.length === 0 ? (
+                                  <tr><td colSpan="7" className="text-center p-1 border border-black font-medium italic text-gray-500">Tiada rekod penyertaan atau pencapaian pertandingan untuk murid ini.</td></tr>
+                               ) : allIndividualReportData.program.map((r, i) => (
                                   <tr key={i}>
                                      <td className="border border-black p-0.5 text-center">{i+1}</td>
                                      <td className="border border-black p-0.5 text-center font-bold">{r.bidang}</td>
@@ -2182,9 +2353,9 @@
                                </tr>
                             </thead>
                             <tbody>
-                               {individualReportData.jawatan.length === 0 ? (
+                               {allIndividualReportData.jawatan.length === 0 ? (
                                   <tr><td colSpan="6" className="text-center p-1 border border-black font-medium italic text-gray-500">Tiada rekod jawatan disandang.</td></tr>
-                               ) : individualReportData.jawatan.map((r, i) => (
+                               ) : allIndividualReportData.jawatan.map((r, i) => (
                                   <tr key={i}>
                                      <td className="border border-black p-0.5 text-center">{i+1}</td>
                                      <td className="border border-black p-0.5 text-center font-bold">{r.bidang}</td>
@@ -2211,9 +2382,9 @@
                                </tr>
                             </thead>
                             <tbody>
-                               {individualReportData.anugerah.length === 0 ? (
+                               {allIndividualReportData.anugerah.length === 0 ? (
                                   <tr><td colSpan="5" className="text-center p-1 border border-black font-medium italic text-gray-500">Tiada rekod anugerah khas.</td></tr>
-                               ) : individualReportData.anugerah.map((r, i) => (
+                               ) : allIndividualReportData.anugerah.map((r, i) => (
                                   <tr key={i}>
                                      <td className="border border-black p-0.5 text-center">{i+1}</td>
                                      <td className="border border-black p-0.5 text-center font-bold">{r.bidang}</td>
@@ -2226,7 +2397,6 @@
                          </table>
                      </div>
 
-                     {/* JADUAL KEHADIRAN (UMUM) */}
                      <div>
                          <h3 className="font-bold text-[10px] mb-0.5 bg-gray-200 p-1 border-l-2 border-black uppercase">D. Rekod Kehadiran Kokurikulum (Sistem EKOKU)</h3>
                          <table className="w-full text-[9px] border-collapse border border-black">
